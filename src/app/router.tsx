@@ -19,6 +19,7 @@ import { MerchantStorePage } from "@/features/merchant/pages/MerchantStorePage";
 import { MerchantAuditPage } from "@/features/merchant/pages/MerchantAuditPage";
 import { AdminHomePage } from "@/features/admin/pages/AdminHomePage";
 import { MerchantKpiPage } from "@/features/merchantKpi/pages/MerchantKpiPage";
+import { OpsKpiPage } from "@/features/opsKpi/pages/OpsKpiPage";
 import { AdminPartnerApplicationsPage } from "@/features/admin/pages/AdminPartnerApplicationsPage";
 import AdminPartnerDetailPage from "@/features/admin/pages/AdminPartnerDetailPage";
 import { AdminMerchantsPage } from "@/features/admin/pages/AdminMerchantsPage";
@@ -84,6 +85,15 @@ export function AppRouter() {
 
         {/* App Shell */}
         <Route path="/" element={<AppShell />}>
+
+          <Route
+            path="ops/kpi"
+            element={
+              <RequireRoles roles={[("ops" satisfies Role), "admin", "system"]}>
+                <OpsKpiPage />
+              </RequireRoles>
+            }
+          />
           <Route index element={<HomeRedirect />} />
 
           {/* Onboarding (auth-only, no role) */}

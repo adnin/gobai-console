@@ -31,6 +31,7 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { label: "Ops", to: "/ops", icon: <Truck className="size-4" />, roles: ["ops", "admin", "system"] },
+  { label: "Ops KPI", to: "/ops/kpi", icon: <BarChart3 className="size-4" />, roles: ["ops", "admin", "system"] },
   { label: "Ops Diagnostics", to: "/ops/explain-stuck", icon: <Activity className="size-4" />, roles: ["ops", "admin", "system"] },
   { label: "Partner Dispatch", to: "/partner/dispatch", icon: <Truck className="size-4" />, roles: ["partner_ops", "partner", "admin", "system"] },
   { label: "Partner", to: "/partner", icon: <Handshake className="size-4" />, roles: ["partner_ops", "partner", "admin", "system"] },

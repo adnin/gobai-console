@@ -1,106 +1,114 @@
 # ROADMAP_WEB.md — ops-dispatch-command-ui (React + Vite)
 
-**North Star:** A role-aware web console that lets Ops/Admin/Merchant/Driver understand the business via **KPIs**, then act fast via **ops tools** (search, timeline, force actions), with enterprise UX and predictable structure.
+**North Star:** A role-aware web console that lets Ops/Admin/Merchant/Driver understand the business via **KPIs first**, then act fast via **ops tools** (search, timeline, force actions), with enterprise UX and predictable structure.
 
 ---
 
 ## Web Principles (non-negotiables)
 - Role-aware navigation + screens (Admin/Ops/Merchant/Driver).
-- Every screen handles: loading, error, empty, unauthorized.
+- Every screen handles: loading, error, empty, unauthorized/forbidden.
 - Every privileged mutation has: confirm + required reason + pending disable + toast + correct cache invalidation.
 - Feature-first structure: `src/features/<feature>/...` with `api.ts / types.ts / keys.ts / hooks.ts / pages/ / components/`.
-- Do not introduce React Native/Expo. Web-only.
+- Web-only. Do not introduce React Native/Expo.
+- API is source of truth: do not invent fields; types must match `api.json` or a provided sample response.
 
 ---
 
-# Milestone A — Role-aware KPI Foundation (Dashboards first)
+# Milestone 0 — Repo health to move fast (Web-only)
+Goal: make development predictable, avoid blockers, keep scope safe.
+
+- [ ] Remove/disable legacy web test suites that reference deleted modules (only if blocking KPI work)
+- [ ] Typecheck baseline cleanup task (separate PR): fix the top offenders causing mass TS errors
+- [ ] Add “Known Issues” section to README (until baseline is green)
+
+---
+
+# Milestone A — Role-aware foundation (required for every page)
 
 ## A1) Auth + role-aware routing + layout
-- [ ] Session bootstrap (current user + role) + protected routes
+- [ ] Session bootstrap: current user + role(s) + guards
+- [ ] Protected routes + Forbidden/Unauthorized pages
 - [ ] Role-aware navigation (hide unauthorized items)
-- [ ] Global error boundary + “Unauthorized/Forbidden” page
+- [ ] Global error boundary + safe fallback UI
 
 ## A2) KPI UI system (reusable, scalable)
-- [ ] KPI Card component (value, delta, trend, subtitle, tooltip, loading skeleton)
-- [ ] KPI Grid layout + responsive behavior
-- [ ] Range selector (Today / 7d / 30d / Custom if supported)
-- [ ] “Last updated” + manual refresh + optional auto-refresh (off by default)
-- [ ] Shared formatting utils (currency, percent, duration)
-
-## A3) Merchant KPI Dashboard (primary)
-- [x] Merchant KPI page: daily/weekly orders + revenue summary (API-based)
-- [ ] KPI breakdown: AOV, cancel rate, fulfilled rate, prep-time avg (if API provides)
-- [ ] KPI drilldowns: “View orders” link filtered by time range (if search endpoint exists)
-- [ ] Tests: states + range toggle + caching/invalidation behavior
-
-## A4) Ops KPI Dashboard
-- [ ] Ops KPI page: orders today, active orders, stuck orders, avg assign time, active drivers online, late-risk count (if API provides)
-- [ ] Drilldowns: stuck orders list, dispatch queue view, driver list (if endpoints exist)
-- [ ] Tests: states + drilldown navigation
-
-## A5) Admin KPI Dashboard
-- [ ] Admin KPI page: GMV, net revenue, take rate, wallet mismatch count, refund totals, platform health rollup (if API provides)
-- [ ] Tests: states + formatting + role gating
+- [ ] `KpiCard` (value, subtitle, optional delta/trend, tooltip, loading skeleton)
+- [ ] `KpiGrid` (responsive layout)
+- [ ] `KpiRangePicker` (Today / 7d / 30d) using `?range=`
+- [ ] “Last updated” + manual refresh
+- [ ] Formatting utils (currency, counts, percent, duration)
 
 ---
 
-# Milestone B — Ops Console MVP (Act fast once KPIs show a problem)
+# Milestone B — KPI Dashboards (role-based)
 
-## B1) Admin/Ops Order Search
+## B1) Merchant KPI Dashboard (primary)
+API is ready → build the web.
+- [ ] Merchant KPI page using merchant KPI endpoints (API-driven, no client-side recompute)
+- [ ] Empty state: “No orders yet for this range”
+- [ ] Drilldown link: “View orders” filtered by range (if order search exists)
+- [ ] Role gating: merchant-only route `/merchant/kpi`
+
+## B2) Ops KPI Dashboard (primary)
+API exists but schema may be incomplete → proceed safely.
+- [x] Ops KPI page `/ops/kpi`
+- [ ] Use API-driven fields only (no guessing). If `/ops/analytics/overview` schema is empty, use fallback endpoints or wait for schema patch.
+- [ ] Drilldowns: stuck orders list, driver list, dispatch funnel (as endpoints allow)
+- [ ] Role gating: ops/admin only
+
+## B3) Admin KPI Dashboard
+- [ ] Admin KPI page `/admin/kpi`
+- [ ] Focus: platform health rollups + money/system indicators (wallet mismatches, refunds, etc.) based on API fields
+- [ ] Role gating: admin only
+
+---
+
+# Milestone C — Ops Console MVP (actions after KPIs)
+
+## C1) Order Search (Admin/Ops)
 - [ ] Search page with filters + pagination + deterministic ordering
-- [ ] Row -> Order details (timeline screen)
+- [ ] Row → Order details (timeline screen)
 
-## B2) Order Timeline (canonical)
+## C2) Order Timeline (canonical)
 - [ ] Timeline page: transitions, assignments, payments/ledger refs, notes/audit (as API returns)
-- [ ] Copy actions for IDs + timestamps formatting
-- [ ] Tests: deterministic ordering display + empty states
+- [ ] Copy-to-clipboard for IDs + consistent timestamp formatting
 
-## B3) Force-cancel + Reassign driver
-- [ ] Force-cancel modal: reason required + allowed-state guardrails + toast
-- [ ] Reassign modal: driver_id required + confirm + toast + invalidates old assignment
-- [ ] Tests: confirm flow + error handling + cache invalidation + role gating
+## C3) Force-cancel + Reassign driver (Admin/Ops)
+- [ ] Force-cancel modal: reason required + guardrails + toast
+- [ ] Reassign modal: driver_id required + confirm + toast + cache invalidation
 
 ---
 
-# Milestone C — Dispatch Overrides + Driver Signals (Stability tools)
-
-- [ ] Manual override: assign to specific driver
-- [ ] Manual override: unassign/reset safely
-- [ ] Show late-risk / heartbeat / offline-resume signals on relevant screens
-- [ ] Tests: pending + success/failure toasts + role gating
-
----
-
-# Milestone D — Production Readiness UI (Health + stuck detector)
+# Milestone D — Stability tooling UI (health + stuck detector)
 
 - [ ] Health dashboard page (`/system/health`) with OK/WARN/CRIT rollups
-- [ ] Stuck orders page with reason codes + drilldown to timeline + suggested actions
-- [ ] Tests: states + refresh behavior
+- [ ] Stuck orders page (`/ops/orders/stuck`) with reason codes + drilldown to timeline + suggested actions
+- [ ] Optional: “AI explain stuck” button if endpoint is enabled (guarded)
 
 ---
 
-# Milestone E — Settlement & Wallet Operator Clarity
+# Milestone E — Settlement & Wallet operator clarity (money explainable)
 
 - [ ] Driver wallet page (driver role): balance + recent transactions
 - [ ] Admin driver wallet page: admin view for driver wallet
 - [ ] Merchant settlement page: earned/pending/paid + hold reasons + ETA
-- [ ] Tests: states + formatting correctness (no float math in UI)
+- [ ] Formatting: money as integer minor units (no float math in UI)
 
 ---
 
-# Milestone F — Merchant Console (Operational controls)
+# Milestone F — Merchant console (operational controls)
 
 - [ ] Store open/close + pause toggle
 - [ ] Default prep time + per-order prep time override (if exposed)
-- [ ] Tests: confirm dialogs + toasts + policy/role gating
+- [ ] Audit visibility (who changed what/when) where API provides it
 
 ---
 
-# Milestone G — Public Storefront (Read-only)
+# Milestone G — Public Storefront (read-only)
 
 - [ ] Shareable store link view: store + catalog snapshot
-- [ ] Caching-friendly UX (stale while revalidate pattern if applicable)
-- [ ] Tests: states + invalid store handling
+- [ ] Caching-friendly UX (stale-while-revalidate pattern if applicable)
+- [ ] Invalid store handling
 
 ---
 
