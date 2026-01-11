@@ -20,6 +20,7 @@ import { MerchantAuditPage } from "@/features/merchant/pages/MerchantAuditPage";
 import { AdminHomePage } from "@/features/admin/pages/AdminHomePage";
 import { MerchantKpiPage } from "@/features/merchantKpi/pages/MerchantKpiPage";
 import { OpsKpiPage } from "@/features/opsKpi/pages/OpsKpiPage";
+import { AdminKpiPage } from "@/features/adminKpi/pages/AdminKpiPage";
 import { AdminPartnerApplicationsPage } from "@/features/admin/pages/AdminPartnerApplicationsPage";
 import AdminPartnerDetailPage from "@/features/admin/pages/AdminPartnerDetailPage";
 import { AdminMerchantsPage } from "@/features/admin/pages/AdminMerchantsPage";
@@ -413,6 +414,15 @@ export function AppRouter() {
             element={
               <RequireRoles roles={["admin", "system"]}>
                 <AdminHomePage />
+              </RequireRoles>
+            }
+          />
+
+          <Route
+            path="admin/kpi"
+            element={
+              <RequireRoles roles={["admin", "system"]}>
+                <AdminKpiPage />
               </RequireRoles>
             }
           />

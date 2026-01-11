@@ -57,7 +57,7 @@ API exists but schema may be incomplete → proceed safely.
 - [ ] Role gating: ops/admin only
 
 ## B3) Admin KPI Dashboard
-- [ ] Admin KPI page `/admin/kpi`
+ - [x] Admin KPI page `/admin/kpi`
 - [ ] Focus: platform health rollups + money/system indicators (wallet mismatches, refunds, etc.) based on API fields
 - [ ] Role gating: admin only
 

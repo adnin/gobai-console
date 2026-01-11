@@ -1,3 +1,3 @@
 # NEXT_UP.md
 
-## Task: Admin KPI Dashboard (role-based) using the KPI primitives
+## Task: Order Search (Admin/Ops) with filters + pagination + deterministic ordering

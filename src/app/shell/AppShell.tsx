@@ -40,6 +40,7 @@ const NAV: NavItem[] = [
   { label: "Merchant KPI", to: "/merchant/kpi", icon: <BarChart3 className="size-4" />, roles: ["merchant", "admin", "system"] },
   { label: "Support", to: "/support", icon: <Headset className="size-4" />, roles: ["support", "admin", "system"] },
   { label: "Finance", to: "/finance", icon: <Wallet className="size-4" />, roles: ["finance", "admin", "system"] },
+  { label: "Admin KPI", to: "/admin/kpi", icon: <BarChart3 className="size-4" />, roles: ["admin", "system"] },
   { label: "Admin", to: "/admin", icon: <Shield className="size-4" />, roles: ["admin", "system"] },
   { label: "Partner Applications", to: "/admin/partner-applications", icon: <Users className="size-4" />, roles: ["admin", "system"] },
   { label: "System", to: "/system", icon: <Settings className="size-4" />, roles: ["system"] },
