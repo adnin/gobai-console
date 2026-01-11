@@ -133,7 +133,7 @@ export function AdminHomePage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Badge variant={q.isError ? "destructive" : "secondary"}>
+          <Badge variant={q.isError ? "danger" : "secondary"}>
             {q.isFetching ? "Syncing…" : q.isError ? "Error" : "Live"}
           </Badge>
           <Button variant="secondary" size="sm" onClick={() => q.refetch()} disabled={q.isFetching}>
@@ -150,7 +150,7 @@ export function AdminHomePage() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between text-base">
                 <span>{it.title}</span>
-                {it.badge != null && Number(it.badge) > 0 && <Badge variant="destructive">{Number(it.badge)}</Badge>}
+                {it.badge != null && Number(it.badge) > 0 && <Badge variant="danger">{Number(it.badge)}</Badge>}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">

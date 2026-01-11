@@ -19,6 +19,7 @@ import {
   Sparkles,
   Users,
   Handshake,
+  BarChart3,
 } from "lucide-react";
 
 type NavItem = {
@@ -35,6 +36,7 @@ const NAV: NavItem[] = [
   { label: "Partner", to: "/partner", icon: <Handshake className="size-4" />, roles: ["partner_ops", "partner", "admin", "system"] },
   { label: "Merchant", to: "/merchant", icon: <Store className="size-4" />, roles: ["merchant", "admin", "system"] },
   { label: "Merchant AI", to: "/merchant/ai", icon: <Sparkles className="size-4" />, roles: ["merchant", "admin", "system"] },
+  { label: "Merchant KPI", to: "/merchant/kpi", icon: <BarChart3 className="size-4" />, roles: ["merchant", "admin", "system"] },
   { label: "Support", to: "/support", icon: <Headset className="size-4" />, roles: ["support", "admin", "system"] },
   { label: "Finance", to: "/finance", icon: <Wallet className="size-4" />, roles: ["finance", "admin", "system"] },
   { label: "Admin", to: "/admin", icon: <Shield className="size-4" />, roles: ["admin", "system"] },

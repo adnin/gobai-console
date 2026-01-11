@@ -36,7 +36,7 @@ export function PartnerApplyPage() {
 
   const onboardingQ = useQuery({
     queryKey: ["me-onboarding"],
-    queryFn: async () => getMyOnboarding(token),
+    queryFn: async () => getMyOnboarding(token!),
     enabled: !!token,
     refetchOnWindowFocus: false,
   });

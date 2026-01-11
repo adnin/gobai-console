@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { UserCheck, FileText } from "lucide-react";
+import { UserCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import {
@@ -281,7 +281,7 @@ export function AdminDriversPage() {
                           </Badge>
                           <Badge
                             variant={
-                              docsPending > 0 ? "destructive" : "secondary"
+                              docsPending > 0 ? "danger" : "secondary"
                             }
                           >
                             Pending: {docsPending}

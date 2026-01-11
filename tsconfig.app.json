@@ -23,5 +23,11 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/tests",
+    "src/**/__tests__",
+    "src/features/dispatch/mock",
+    "src/features/orders"
+  ]
 }

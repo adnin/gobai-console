@@ -3,7 +3,6 @@ import { useAuth } from "@/lib/auth";
 import { opsOfferDriver } from "../api/opsApi";
 import { partnerOfferDriver } from "../api/partnerApi";
 import type { DispatchOrder } from "../types";
-import { computeExpiresAt } from "../offer/offerTime";
 
 /**
  * Legacy name kept to avoid rewriting imports everywhere.
@@ -26,7 +25,7 @@ export function useAssignDriver(opts?: { mode?: "ops" | "partner" }) {
       return mode === "partner" ? partnerOfferDriver(token, input) : opsOfferDriver(token, input);
     },
 
-    onMutate: async ({ orderId, driverId }) => {
+    onMutate: async ({ orderId }) => {
       // optimistic UI: move to offered lane
       await qc.cancelQueries({ queryKey: baseOrdersKey });
 

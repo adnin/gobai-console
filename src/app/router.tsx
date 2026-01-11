@@ -18,6 +18,7 @@ import { MerchantPayoutsPage } from "@/features/merchant/pages/MerchantPayoutsPa
 import { MerchantStorePage } from "@/features/merchant/pages/MerchantStorePage";
 import { MerchantAuditPage } from "@/features/merchant/pages/MerchantAuditPage";
 import { AdminHomePage } from "@/features/admin/pages/AdminHomePage";
+import { MerchantKpiPage } from "@/features/merchantKpi/pages/MerchantKpiPage";
 import { AdminPartnerApplicationsPage } from "@/features/admin/pages/AdminPartnerApplicationsPage";
 import AdminPartnerDetailPage from "@/features/admin/pages/AdminPartnerDetailPage";
 import { AdminMerchantsPage } from "@/features/admin/pages/AdminMerchantsPage";
@@ -51,6 +52,7 @@ import { OpsExplainStuckPage } from "@/features/dispatch/pages/OpsExplainStuckPa
 // Import envBool for conditional promotion module access
 import { envBool } from "@/lib/http";
 import { HomeRedirect } from "@/app/HomeRedirect";
+import type { Role } from "@/lib/rbac";
 
 export function AppRouter() {
   // Determine promotion module visibility for non-admin users. By default these
@@ -63,13 +65,13 @@ export function AppRouter() {
 
   // Compute roles allowed for each promotions route. When the corresponding
   // feature flag is disabled, only admin and system may access the route.
-  const merchantPromoRoles: string[] = ENABLE_MERCHANT_PROMOS
+  const merchantPromoRoles: Role[] = ENABLE_MERCHANT_PROMOS
     ? ["merchant", "admin", "system"]
     : ["admin", "system"];
-  const partnerPromoRoles: string[] = ENABLE_PARTNER_PROMOS
+  const partnerPromoRoles: Role[] = ENABLE_PARTNER_PROMOS
     ? ["partner_ops", "partner", "admin", "system"]
     : ["admin", "system"];
-  const financePromoRoles: string[] = ENABLE_FINANCE_PROMOS
+  const financePromoRoles: Role[] = ENABLE_FINANCE_PROMOS
     ? ["finance", "admin", "system"]
     : ["admin", "system"];
   return (
@@ -182,6 +184,15 @@ export function AppRouter() {
             element={
               <RequireRoles roles={["merchant", "admin", "system"]}>
                 <MerchantAiGeneratePage />
+              </RequireRoles>
+            }
+          />
+
+          <Route
+            path="merchant/kpi"
+            element={
+              <RequireRoles roles={["merchant", "admin", "system"]}>
+                <MerchantKpiPage />
               </RequireRoles>
             }
           />

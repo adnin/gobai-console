@@ -13,10 +13,10 @@ export function OfferTimerRing(props: {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
 
-  const [now, setNow] = React.useState(Date.now());
+  const [, forceTick] = React.useState(0);
   React.useEffect(() => {
     if (props.state !== "pending") return;
-    const t = setInterval(() => setNow(Date.now()), 200);
+    const t = setInterval(() => forceTick((x) => x + 1), 200);
     return () => clearInterval(t);
   }, [props.state]);
 

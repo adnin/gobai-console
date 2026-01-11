@@ -34,7 +34,6 @@ import {
   merchantGetOrder,
   merchantSubmitPaperQuote,
   merchantUpdateOrderStoreStatus,
-  merchantPickupComplete,
   merchantGetKpi,
   type MerchantKpiResponse,
   type MerchantOrderLite,

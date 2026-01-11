@@ -339,7 +339,7 @@ export function AdminPromotionsPage() {
                 </Button>
                 <Button
                   type="button"
-                  variant={brainForce ? "danger" : "secondary"}
+                  variant={brainForce ? "destructive" : "secondary"}
                   onClick={() => setBrainForce((v) => !v)}
                 >
                   {brainForce ? "Force: ON" : "Force: OFF"}

@@ -68,11 +68,11 @@ export default function AdminPartnerDetailPage() {
   });
 
   const [txPage, setTxPage] = React.useState(1);
-  const txQ = useQuery({
+  const txQ = useQuery<{ data: PartnerWalletTx[]; meta?: { current_page?: number; last_page?: number; total?: number } }>({
     queryKey: ["admin-partner-wallet-tx", pid, txPage],
     queryFn: async () => adminListPartnerWalletTransactions(token!, pid, { page: txPage, per_page: 25 }),
     enabled: !!token && Number.isFinite(pid) && pid > 0 && tab === "wallet",
-    keepPreviousData: true,
+    placeholderData: (prev) => prev,
   });
 
   const driversQ = useQuery({
@@ -137,7 +137,7 @@ export default function AdminPartnerDetailPage() {
 
   const summary = summaryQ.data?.data;
   const wallet = walletQ.data?.data;
-  const txRows = (txQ.data?.data ?? []) as PartnerWalletTx[];
+  const txRows = txQ.data?.data ?? [];
   const txMeta = txQ.data?.meta;
   const driverRows = (driversQ.data?.data ?? []) as PartnerDriverRow[];
   const storeRows = (storesQ.data?.data ?? []) as PartnerStoreRow[];

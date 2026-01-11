@@ -72,13 +72,13 @@ export function AdminPartnerApplicationsPage() {
 
   const appsQ = useQuery({
     queryKey: ["admin-partner-applications", status],
-    queryFn: async () => adminListPartnerApplications(token, { status, page: 1, limit: 50 }),
+    queryFn: async () => adminListPartnerApplications(token!, { status, page: 1, limit: 50 }),
     enabled: !!token,
     refetchOnWindowFocus: false,
   });
 
   const approveM = useMutation({
-    mutationFn: async (id: number) => adminApprovePartnerApplication(token, id),
+    mutationFn: async (id: number) => adminApprovePartnerApplication(token!, id),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["admin-partner-applications"] });
     },
@@ -86,7 +86,7 @@ export function AdminPartnerApplicationsPage() {
 
   const rejectM = useMutation({
     mutationFn: async ({ id, reason }: { id: number; reason?: string }) =>
-      adminRejectPartnerApplication(token, id, reason),
+      adminRejectPartnerApplication(token!, id, reason),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["admin-partner-applications"] });
     },
@@ -279,7 +279,7 @@ function PartnerDetailPanel({
 
   const storesQ = useQuery({
     queryKey: ["admin-stores"],
-    queryFn: async () => listStores(token),
+    queryFn: async () => listStores(token!),
     enabled: !!token && panel === "stores",
     staleTime: 30_000,
   });
@@ -287,13 +287,13 @@ function PartnerDetailPanel({
   const [driverQ, setDriverQ] = React.useState<string>("");
   const driversQ = useQuery({
     queryKey: ["admin-drivers", driverQ],
-    queryFn: async () => opsListDrivers(token, { q: driverQ, status: "approved" }),
+    queryFn: async () => opsListDrivers(token!, { q: driverQ, status: "approved" }),
     enabled: !!token && panel === "drivers",
     staleTime: 10_000,
   });
 
   const assignDriverM = useMutation({
-    mutationFn: async (driverUserId: number) => adminAssignDriverToPartner(token, partnerUserId, driverUserId),
+    mutationFn: async (driverUserId: number) => adminAssignDriverToPartner(token!, partnerUserId, driverUserId),
     onSuccess: async () => {
       setToast({ kind: "ok", text: "Driver assigned to partner fleet." });
       await qc.invalidateQueries({ queryKey: ["admin-drivers"] });
@@ -302,7 +302,7 @@ function PartnerDetailPanel({
   });
 
   const unassignDriverM = useMutation({
-    mutationFn: async (driverUserId: number) => adminUnassignDriver(token, driverUserId),
+    mutationFn: async (driverUserId: number) => adminUnassignDriver(token!, driverUserId),
     onSuccess: async () => {
       setToast({ kind: "ok", text: "Driver unassigned." });
       await qc.invalidateQueries({ queryKey: ["admin-drivers"] });
@@ -311,7 +311,7 @@ function PartnerDetailPanel({
   });
 
   const assignStoreM = useMutation({
-    mutationFn: async (storeId: number) => adminAssignStoreToPartner(token, partnerUserId, storeId),
+    mutationFn: async (storeId: number) => adminAssignStoreToPartner(token!, partnerUserId, storeId),
     onSuccess: async () => {
       setToast({ kind: "ok", text: "Store assigned to partner." });
       await qc.invalidateQueries({ queryKey: ["admin-stores"] });

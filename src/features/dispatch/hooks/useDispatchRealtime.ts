@@ -42,7 +42,7 @@ export function useDispatchRealtime() {
     s.on("message", onEvent);
 
     // Fallback: catch any event name
-    const onAny = (eventName: string, p: any) => {
+    const onAny = (_eventName: string, p: any) => {
       // ignore noisy internal events
       if (!p || typeof p !== "object") return;
       handlePayload(p);
