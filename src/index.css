@@ -1,0 +1,139 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* --- shadcn/ui style tokens (Tailwind v4) --- */
+/* Note: This is a starter theme. You can swap values via tweakcn or shadcn CLI later. */
+:root {
+  --background: #f7f7f8;
+  --foreground: #0f172a;
+
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+
+  --primary: #10a37f;
+  --primary-foreground: #f7f7f8;
+
+  --secondary: #eef2f5;
+  --secondary-foreground: #0f172a;
+
+  --muted: #f1f5f9;
+  --muted-foreground: #6b7280;
+
+  --accent: #e5e7eb;
+  --accent-foreground: #0f172a;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #f7f7f8;
+
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #10a37f;
+
+  --radius: 0.9rem;
+
+  /* App-specific semantic tokens */
+  --success: #16a34a;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+}
+
+.dark {
+  --background: #202123;
+  --foreground: #ececf1;
+
+  --card: #2a2b32;
+  --card-foreground: #ececf1;
+
+  --popover: #2a2b32;
+  --popover-foreground: #ececf1;
+
+  --primary: #19c37d;
+  --primary-foreground: #0f1117;
+
+  --secondary: #343541;
+  --secondary-foreground: #ececf1;
+
+  --muted: #2f3036;
+  --muted-foreground: #9ca3af;
+
+  --accent: #343541;
+  --accent-foreground: #ececf1;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #0f1117;
+
+  --border: #3f4147;
+  --input: #3f4147;
+  --ring: #19c37d;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius: var(--radius);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* nice default selection */
+::selection {
+  background: color-mix(in oklab, var(--primary) 18%, transparent);
+}
+
+/* --- Merchant board AAA-ish (still clean) --- */
+@keyframes merchantCardSpawn {
+  0% { opacity: 0; transform: translateY(10px) scale(0.985); }
+  60% { opacity: 1; transform: translateY(-1px) scale(1.008); }
+  100% { opacity: 1; transform: translateY(0px) scale(1); }
+}
+
+@keyframes merchantGlow {
+  0% { box-shadow: 0 0 0 rgba(0,0,0,0); }
+  30% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--primary) 18%, transparent); }
+  100% { box-shadow: 0 0 0 rgba(0,0,0,0); }
+}
+
+@keyframes merchantLaneFlash {
+  0% { box-shadow: 0 0 0 rgba(0,0,0,0); }
+  20% { box-shadow: 0 0 0 10px color-mix(in oklab, var(--primary) 16%, transparent); }
+  100% { box-shadow: 0 0 0 rgba(0,0,0,0); }
+}
+
+.merchant-card-new {
+  animation: merchantCardSpawn 320ms ease-out, merchantGlow 1200ms ease-out;
+}
+
+.merchant-lane-flash {
+  animation: merchantLaneFlash 900ms ease-out;
+}
