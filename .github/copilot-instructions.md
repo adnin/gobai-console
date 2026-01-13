@@ -57,12 +57,31 @@ If multiple tasks exist, ALWAYS do only the single task in `NEXT_UP.md`.
 
 Branch naming: `feat/<slug>` / `chore/<slug>` / `test/<slug>`.
 
-Run on every task:
-- `yarn typecheck`
-- `yarn test`
-- `yarn build` (when touching routing/build/types/config)
+Run on every task (strict):
+- After edits (and after each fix batch):
+  - `yarn typecheck`  ✅ must be green before moving forward
+- Then:
+  - `yarn test`
+  - `yarn build` (when touching routing/build/types/config)
+
+Stop conditions:
+- If `yarn typecheck` fails, STOP all other work and fix TypeScript errors first.
 
 ---
+
+### TypeScript diagnostics rule (must follow)
+- After **every code change in the current file/page**, you MUST ensure there are **zero** TypeScript errors.
+- Do this by:
+  1) Checking VS Code **Problems** for the current file (preferred), and
+  2) Running `yarn typecheck` after edits to confirm no errors remain.
+- If `yarn typecheck` reports errors:
+  - Fix them immediately (smallest safe change),
+  - Re-run `yarn typecheck`,
+  - Repeat until green.
+- Do NOT ignore, comment-out, or “any”-cast away errors unless `NEXT_UP.md` explicitly allows it.
+- If the error is “Cannot find name …”:
+  - First search for an existing helper/util in the repo and import it,
+  - Only create a new helper if none exists.
 
 ## Absolute constraints
 - **Web-only**. Do not add or reference React Native / Expo / mobile dependencies.

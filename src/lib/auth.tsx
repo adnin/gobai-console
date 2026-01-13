@@ -51,14 +51,14 @@ function readJson<T>(key: string): T | null {
  * Map backend role names to your canonical console modules.
  * Backend policies accept many synonyms (operator, dispatcher, accounting, devops, etc).
  * We normalize them into your UI roles:
- * - merchant, admin, ops, support, finance, system
+ * - merchant, admin, ops, partner, driver, support, finance, system
  */
 function canonicalizeRoleName(raw: unknown): Role | null {
   const v = String(raw ?? "").trim().toLowerCase();
   if (!v) return null;
 
   // direct hits
-  const direct: Role[] = ["merchant", "admin", "ops", "partner", "support", "finance", "system"];
+  const direct: Role[] = ["merchant", "admin", "ops", "partner", "driver", "support", "finance", "system"];
   if ((direct as string[]).includes(v)) return v as Role;
 
   // partner-ish (backend uses partner_ops)
@@ -79,7 +79,9 @@ function canonicalizeRoleName(raw: unknown): Role | null {
   // system-ish
   if (["devops", "engineer"].includes(v)) return "system";
 
-  // your API has driver/rider roles; ignore them for this console
+  // driver-ish
+  if (["driver", "rider", "courier"].includes(v)) return "driver";
+
   return null;
 }
 

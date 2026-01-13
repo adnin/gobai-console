@@ -326,6 +326,15 @@ export type MerchantStore = {
   product_limit_base?: number | null;
   product_limit_extra?: number | null;
   subscription_ends_at?: string | null;
+  default_prep_time_min?: number | null;
+  prep_time_minutes?: number | null;
+  order_cutoff_minutes?: number | null;
+  is_paused?: boolean;
+  pause_reason?: string | null;
+  pause_notes?: string | null;
+  pause_started_at?: string | null;
+  pause_expires_at?: string | null;
+  availability?: string;
 };
 
 export async function merchantGetStore(token: string): Promise<{ store: MerchantStore }> {
@@ -357,6 +366,21 @@ export async function merchantUpdateStoreHours(
 ): Promise<any> {
   // API expects strings; null is allowed for clearing.
   return merchantSetStoreHours(token, { open_time: hours.open_time as any, close_time: hours.close_time as any });
+}
+
+export async function merchantPauseStore(
+  token: string,
+  payload: { reason: string; notes?: string | null; resume_after_minutes?: number | null; resume_at?: string | null }
+): Promise<any> {
+  return apiJson(`/merchant/store/pause`, { method: "POST", token, body: JSON.stringify(payload) });
+}
+
+export async function merchantResumeStore(token: string): Promise<any> {
+  return apiJson(`/merchant/store/resume`, { method: "POST", token, body: JSON.stringify({}) });
+}
+
+export async function merchantUpdateDefaultPrepTime(token: string, default_prep_time_min: number): Promise<any> {
+  return apiJson(`/merchant/store/prep-time`, { method: "PATCH", token, body: JSON.stringify({ default_prep_time_min }) });
 }
 
 export type MerchantProduct = {

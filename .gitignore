@@ -5,3 +5,6 @@ dist
 .env.local
 coverage
 .vite
+
+# Local backend reference (do not commit)
+backend/

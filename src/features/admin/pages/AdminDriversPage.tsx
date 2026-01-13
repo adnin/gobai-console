@@ -261,6 +261,8 @@ export function AdminDriversPage() {
                       ).toLowerCase() === "rejected"
                   ).length;
 
+                  const userId = r?.user_id ?? r?.user?.id;
+
                   return (
                     <tr key={r.id} className="border-t">
                       <td className="px-3 py-2">
@@ -316,8 +318,8 @@ export function AdminDriversPage() {
                           {st === "pending" && (
                             <>
                               <Button
-                                onClick={() => approveAppM.mutate(r.id)}
-                                disabled={busy}
+                                onClick={() => userId && approveAppM.mutate(userId)}
+                                disabled={busy || !userId}
                               >
                                 Approve
                               </Button>
@@ -328,9 +330,10 @@ export function AdminDriversPage() {
                                     prompt("Reject reason (required):") ?? ""
                                   ).trim();
                                   if (!reason) return;
-                                  rejectAppM.mutate({ id: r.id, reason });
+                                  if (!userId) return;
+                                  rejectAppM.mutate({ id: userId, reason });
                                 }}
-                                disabled={busy}
+                                disabled={busy || !userId}
                               >
                                 Reject
                               </Button>

@@ -17,10 +17,13 @@ import { MerchantWalletPage } from "@/features/merchant/pages/MerchantWalletPage
 import { MerchantPayoutsPage } from "@/features/merchant/pages/MerchantPayoutsPage";
 import { MerchantStorePage } from "@/features/merchant/pages/MerchantStorePage";
 import { MerchantAuditPage } from "@/features/merchant/pages/MerchantAuditPage";
+import { MerchantSettlementPage } from "@/features/settlement/pages/MerchantSettlementPage";
 import { AdminHomePage } from "@/features/admin/pages/AdminHomePage";
 import { MerchantKpiPage } from "@/features/merchantKpi/pages/MerchantKpiPage";
 import { OpsKpiPage } from "@/features/opsKpi/pages/OpsKpiPage";
 import { AdminKpiPage } from "@/features/adminKpi/pages/AdminKpiPage";
+import { AdminOrdersPage } from "@/features/adminOrders/pages/AdminOrdersPage";
+import { AdminOrderTimelinePage } from "@/features/adminOrders/pages/AdminOrderTimelinePage";
 import { AdminPartnerApplicationsPage } from "@/features/admin/pages/AdminPartnerApplicationsPage";
 import AdminPartnerDetailPage from "@/features/admin/pages/AdminPartnerDetailPage";
 import { AdminMerchantsPage } from "@/features/admin/pages/AdminMerchantsPage";
@@ -44,6 +47,10 @@ import { FinanceReconcilePage } from "@/features/finance/pages/FinanceReconcileP
 import { FinanceReconcileReportPage } from "@/features/finance/pages/FinanceReconcileReportPage";
 import { SystemHomePage } from "@/features/system/pages/SystemHomePage";
 import { SystemCompliancePage } from "@/features/system/pages/SystemCompliancePage";
+import { StuckOrdersPage } from "@/features/stuckOrders/pages/StuckOrdersPage";
+import { HealthDashboardPage } from "@/features/health/pages/HealthDashboardPage";
+import { DriverWalletPage } from "@/features/wallets/pages/DriverWalletPage";
+import { AdminDriverWalletPage } from "@/features/wallets/pages/AdminDriverWalletPage";
 // Promotions modules (merchant/admin/finance/partner)
 import MerchantPromotionsPage from "@/features/merchant/pages/MerchantPromotionsPage";
 import AdminPromotionsPage from "@/features/admin/pages/AdminPromotionsPage";
@@ -55,6 +62,7 @@ import { OpsExplainStuckPage } from "@/features/dispatch/pages/OpsExplainStuckPa
 import { envBool } from "@/lib/http";
 import { HomeRedirect } from "@/app/HomeRedirect";
 import type { Role } from "@/lib/rbac";
+import { PublicStorefrontPage } from "@/features/storefrontPublic/pages/PublicStorefrontPage";
 
 export function AppRouter() {
   // Determine promotion module visibility for non-admin users. By default these
@@ -83,6 +91,7 @@ export function AppRouter() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
         <Route path="/logout" element={<LogoutPage />} />
+        <Route path="/store/:slug" element={<PublicStorefrontPage />} />
 
         {/* App Shell */}
         <Route path="/" element={<AppShell />}>
@@ -135,6 +144,15 @@ export function AppRouter() {
           />
 
           <Route
+            path="ops/orders/stuck"
+            element={
+              <RequireRoles roles={["ops", "admin", "system"]}>
+                <StuckOrdersPage />
+              </RequireRoles>
+            }
+          />
+
+          <Route
             path="ops/logout"
             element={
               <RequireRoles roles={["ops", "admin", "system"]}>
@@ -176,6 +194,16 @@ export function AppRouter() {
             element={
               <RequireRoles roles={["partner_ops", "partner", "admin", "system"]}>
                 <LogoutPage />
+              </RequireRoles>
+            }
+          />
+
+          {/* Driver */}
+          <Route
+            path="driver/wallet"
+            element={
+              <RequireRoles roles={["driver", "admin", "system"]}>
+                <DriverWalletPage />
               </RequireRoles>
             }
           />
@@ -231,6 +259,15 @@ export function AppRouter() {
             element={
               <RequireRoles roles={["merchant", "admin", "system"]}>
                 <MerchantPayoutsPage />
+              </RequireRoles>
+            }
+          />
+
+          <Route
+            path="merchant/settlement"
+            element={
+              <RequireRoles roles={["merchant", "admin", "system"]}>
+                <MerchantSettlementPage />
               </RequireRoles>
             }
           />
@@ -419,6 +456,24 @@ export function AppRouter() {
           />
 
           <Route
+            path="admin/orders"
+            element={
+              <RequireRoles roles={["admin", "ops", "system"]}>
+                <AdminOrdersPage />
+              </RequireRoles>
+            }
+          />
+
+          <Route
+            path="admin/orders/:orderId/timeline"
+            element={
+              <RequireRoles roles={["admin", "ops", "system"]}>
+                <AdminOrderTimelinePage />
+              </RequireRoles>
+            }
+          />
+
+          <Route
             path="admin/kpi"
             element={
               <RequireRoles roles={["admin", "system"]}>
@@ -441,6 +496,15 @@ export function AppRouter() {
             element={
               <RequireRoles roles={["admin", "system"]}>
                 <AdminDriversPage />
+              </RequireRoles>
+            }
+          />
+
+          <Route
+            path="admin/driver-wallets"
+            element={
+              <RequireRoles roles={["admin", "system"]}>
+                <AdminDriverWalletPage />
               </RequireRoles>
             }
           />
@@ -514,6 +578,15 @@ export function AppRouter() {
             element={
               <RequireRoles roles={["system"]}>
                 <SystemHomePage />
+              </RequireRoles>
+            }
+          />
+
+          <Route
+            path="system/health"
+            element={
+              <RequireRoles roles={["ops", "admin", "system"]}>
+                <HealthDashboardPage />
               </RequireRoles>
             }
           />

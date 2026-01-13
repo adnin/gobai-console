@@ -20,7 +20,8 @@ describe("extractRolesFromUser", () => {
   });
 
   it("filters unknown roles", () => {
-    expect(extractRolesFromUser({ role_name: "driver" })).toEqual([]);
+    expect(extractRolesFromUser({ role_name: "unknown" })).toEqual([]);
+    expect(extractRolesFromUser({ role_name: "invalid_role" })).toEqual([]);
   });
 });
 
@@ -113,7 +114,7 @@ describe("Auth API fetch integration", () => {
       );
     }
 
-    const { getByText, findByTestId } = render(
+    const { getByText, findAllByTestId } = render(
       <AuthProvider>
         <Probe />
       </AuthProvider>
@@ -123,7 +124,8 @@ describe("Auth API fetch integration", () => {
       getByText("me").click();
     });
 
-    expect((await findByTestId("role")).textContent).toBe("ops");
+    const roleElements = await findAllByTestId("role");
+    expect(roleElements[roleElements.length - 1].textContent).toBe("ops");
 
     const call = (fetch as any).mock.calls[0];
     expect(call[0]).toContain("/user");

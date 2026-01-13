@@ -4,6 +4,7 @@ export type Role =
   | "ops"
   | "partner_ops"
   | "partner"
+  | "driver"
   | "support"
   | "finance"
   | "system";

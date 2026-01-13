@@ -11,6 +11,8 @@ import {
   merchantUpdateStore,
   merchantUpdateStoreStatus,
   merchantUpdateStoreHours,
+  merchantPauseStore,
+  merchantResumeStore,
   MerchantStore,
 } from "@/features/merchant/api/merchantApi";
 import { MerchantTabs } from "@/features/merchant/components/MerchantTabs";
@@ -43,6 +45,7 @@ export function MerchantStorePage() {
         name: String(draft.name ?? "").trim(),
         description: String(draft.description ?? "").trim() || null,
         address: String(draft.address ?? "").trim() || null,
+        default_prep_time_min: draft.default_prep_time_min,
       }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["merchant", "store"] });
@@ -68,6 +71,25 @@ export function MerchantStorePage() {
 
   const hoursM = useMutation({
     mutationFn: async () => merchantUpdateStoreHours(String(token), { open_time: openTime || null, close_time: closeTime || null }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["merchant", "store"] });
+    },
+  });
+
+  const [pauseReason, setPauseReason] = useState("");
+  const [pauseNotes, setPauseNotes] = useState("");
+
+  const pauseM = useMutation({
+    mutationFn: async () => merchantPauseStore(String(token), { reason: pauseReason.trim(), notes: pauseNotes.trim() || null }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["merchant", "store"] });
+      setPauseReason("");
+      setPauseNotes("");
+    },
+  });
+
+  const resumeM = useMutation({
+    mutationFn: async () => merchantResumeStore(String(token)),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["merchant", "store"] });
     },
@@ -114,9 +136,50 @@ export function MerchantStorePage() {
             <div className="text-xs text-muted-foreground">
               Closing your store reduces cancellations when you’re offline.
             </div>
-            {(storeQ.isError || statusM.isError) && (
+            {s?.is_paused && (
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                <div className="text-sm font-medium text-yellow-800">Store is paused</div>
+                {s.pause_reason && <div className="text-xs text-yellow-700 mt-1">Reason: {s.pause_reason}</div>}
+                {s.pause_expires_at && <div className="text-xs text-yellow-700">Resumes: {new Date(s.pause_expires_at).toLocaleString()}</div>}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => resumeM.mutate()}
+                  disabled={resumeM.isPending}
+                  className="mt-2"
+                >
+                  {resumeM.isPending ? "Resuming…" : "Resume Now"}
+                </Button>
+              </div>
+            )}
+            {!s?.is_paused && (
+              <div className="space-y-2">
+                <div className="text-xs text-muted-foreground">Pause temporarily:</div>
+                <Input
+                  placeholder="Reason for pause (required)"
+                  value={pauseReason}
+                  onChange={(e) => setPauseReason(e.target.value)}
+                  className="text-xs"
+                />
+                <Input
+                  placeholder="Additional notes (optional)"
+                  value={pauseNotes}
+                  onChange={(e) => setPauseNotes(e.target.value)}
+                  className="text-xs"
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => pauseM.mutate()}
+                  disabled={pauseM.isPending || !pauseReason.trim()}
+                >
+                  {pauseM.isPending ? "Pausing…" : "Pause Store"}
+                </Button>
+              </div>
+            )}
+            {(storeQ.isError || statusM.isError || pauseM.isError || resumeM.isError) && (
               <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
-                {(storeQ.error as any)?.message ?? (statusM.error as any)?.message ?? "Request failed"}
+                {(storeQ.error as any)?.message ?? (statusM.error as any)?.message ?? (pauseM.error as any)?.message ?? (resumeM.error as any)?.message ?? "Request failed"}
               </div>
             )}
           </CardContent>
@@ -138,6 +201,17 @@ export function MerchantStorePage() {
             <div>
               <div className="mb-1 text-xs text-muted-foreground">Address</div>
               <Input value={String(draft.address ?? "")} onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))} placeholder="optional" />
+            </div>
+            <div>
+              <div className="mb-1 text-xs text-muted-foreground">Default Prep Time (minutes)</div>
+              <Input
+                type="number"
+                min="1"
+                max="120"
+                value={String(draft.default_prep_time_min ?? "")}
+                onChange={(e) => setDraft((d) => ({ ...d, default_prep_time_min: Number(e.target.value) || undefined }))}
+                placeholder="e.g., 15"
+              />
             </div>
 
             <Button onClick={() => updateM.mutate()} disabled={updateM.isPending || String(draft.name ?? "").trim().length < 2}>

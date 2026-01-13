@@ -6,6 +6,7 @@ const tabs = [
   { to: "/merchant", label: "Orders" },
   { to: "/merchant/products", label: "Products" },
   { to: "/merchant/wallet", label: "Wallet" },
+  { to: "/merchant/settlement", label: "Settlement" },
   { to: "/merchant/payouts", label: "Payouts" },
   { to: "/merchant/store", label: "Store" },
   { to: "/merchant/audit", label: "Audit" },
