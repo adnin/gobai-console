@@ -97,7 +97,7 @@ describe("Auth API fetch integration", () => {
 
     localStorage.setItem("dispatch_web_token", "1|seed");
 
-    (fetch as any).mockResolvedValueOnce({
+    (fetch as any).mockResolvedValue({
       ok: true,
       status: 200,
       headers: { get: () => "application/json" },

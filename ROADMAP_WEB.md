@@ -85,7 +85,7 @@ API exists but schema may be incomplete → proceed safely.
 - [x] Health dashboard page (`/system/health`) with OK/WARN/CRIT rollups + DB/Redis/queue heartbeat
 - [x] Health dashboard states: unauthorized, loading, error, empty
 - [x] Stuck orders page (`/ops/orders/stuck`) with reason codes + drilldown to timeline + suggested actions
-- [ ] Optional: “AI explain stuck” button if endpoint is enabled (guarded)
+- [x] Optional: “AI explain stuck” button if endpoint is enabled (guarded)
 
 ---
 

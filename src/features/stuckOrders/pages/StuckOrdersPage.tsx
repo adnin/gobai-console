@@ -1,14 +1,19 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Clock, Filter, RefreshCw } from "lucide-react";
+import { useMutation, type UseMutationResult } from "@tanstack/react-query";
+import { AlertTriangle, Clock, Filter, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/ui/toast/ToastProvider";
 import { useAuth } from "@/lib/auth";
+import { envBool } from "@/lib/http";
 import { hasAnyRole, type Role } from "@/lib/rbac";
 import { getErrorMessage } from "@/lib/apiError";
+import { opsExplainStuck, type OpsExplainStuckResponse } from "@/features/dispatch/api/opsApi";
 import { useStuckOrders } from "../hooks";
 import { parseAgeMinutes, type StuckOrder } from "../types";
 
@@ -23,14 +28,24 @@ const TIME_WINDOWS = [
 ];
 
 const LIMIT_OPTIONS = [25, 50, 100];
+const AI_EXPLAIN_ENABLED = envBool("VITE_ENABLE_OPS_AI_EXPLAIN", false);
+
+type ExplainMutation = UseMutationResult<
+  OpsExplainStuckResponse,
+  unknown,
+  { orderId: number; includeAi: boolean }
+>;
 
 export function StuckOrdersPage() {
-  const { viewer } = useAuth();
+  const { viewer, token } = useAuth();
+  const toast = useToast();
   const allowed = hasAnyRole(viewer, OPS_ROLES);
   const [reasonFilter, setReasonFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [timeFilter, setTimeFilter] = useState(TIME_WINDOWS[0].value);
   const [limit, setLimit] = useState(LIMIT_OPTIONS[2]);
+  const [explainTarget, setExplainTarget] = useState<StuckOrder | null>(null);
+  const [includeAiMeta, setIncludeAiMeta] = useState(true);
 
   const query = useStuckOrders({ limit }, allowed);
   const orders = query.data?.data ?? [];
@@ -62,11 +77,38 @@ export function StuckOrdersPage() {
   const isUnauthorized = query.error && (query.error as any)?.status === 403;
   const isError = query.isError && !isUnauthorized;
   const errorMessage = isError ? getErrorMessage(query.error, "Unable to load stuck orders") : null;
+  const canExplainAi = allowed && AI_EXPLAIN_ENABLED;
+
+  const explainMutation = useMutation<OpsExplainStuckResponse, unknown, { orderId: number; includeAi: boolean }>({
+    mutationFn: async ({ orderId, includeAi }) => {
+      if (!token) throw new Error("Not authenticated");
+      return opsExplainStuck(String(token), { orderId, includeAi });
+    },
+    onSuccess: (data) => toast.ok(`AI explanation ready for order #${data.order_id}`),
+    onError: (err) => toast.apiErr(err, "Could not get AI explanation"),
+  });
 
   const handleReset = () => {
     setReasonFilter("all");
     setStatusFilter("all");
     setTimeFilter(TIME_WINDOWS[0].value);
+  };
+
+  const handleOpenExplain = (order: StuckOrder) => {
+    setIncludeAiMeta(true);
+    explainMutation.reset();
+    setExplainTarget(order);
+  };
+
+  const handleCloseExplain = () => {
+    if (explainMutation.isPending) return;
+    setExplainTarget(null);
+    explainMutation.reset();
+  };
+
+  const handleExplainConfirm = () => {
+    if (!explainTarget || explainMutation.isPending) return;
+    explainMutation.mutate({ orderId: explainTarget.order_id, includeAi: includeAiMeta });
   };
 
   if (!allowed) {
@@ -218,9 +260,25 @@ export function StuckOrdersPage() {
 
       <div className="space-y-3">
         {filtered.map((order) => (
-          <StuckOrderCard key={order.order_id} order={order} />
+          <StuckOrderCard
+            key={order.order_id}
+            order={order}
+            onExplain={canExplainAi ? handleOpenExplain : undefined}
+          />
         ))}
       </div>
+
+      {canExplainAi ? (
+        <ExplainStuckDialog
+          order={explainTarget}
+          isOpen={Boolean(explainTarget)}
+          includeAi={includeAiMeta}
+          onIncludeAiChange={setIncludeAiMeta}
+          onClose={handleCloseExplain}
+          onConfirm={handleExplainConfirm}
+          mutation={explainMutation}
+        />
+      ) : null}
     </div>
   );
 }
@@ -239,7 +297,7 @@ function LoadingList() {
   );
 }
 
-function StuckOrderCard({ order }: { order: StuckOrder }) {
+function StuckOrderCard({ order, onExplain }: { order: StuckOrder; onExplain?: (order: StuckOrder) => void }) {
   const age = parseAgeMinutes(order.age_minutes);
   const lastUpdate = order.last_event_at ? new Date(order.last_event_at).toLocaleString() : "—";
 
@@ -303,9 +361,180 @@ function StuckOrderCard({ order }: { order: StuckOrder }) {
           <Button asChild size="sm" variant="outline">
             <Link to={`/admin/orders/${order.order_id}/timeline`}>View timeline</Link>
           </Button>
-          <Button asChild size="sm" variant="secondary">
-            <Link to="/ops/explain-stuck">Explain stuck</Link>
-          </Button>
+          {onExplain ? (
+            <Button size="sm" variant="secondary" onClick={() => onExplain(order)}>
+              <Sparkles className="mr-1.5 h-4 w-4" />
+              AI explain
+            </Button>
+          ) : (
+            <Button asChild size="sm" variant="secondary">
+              <Link to="/ops/explain-stuck">Explain stuck</Link>
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExplainStuckDialog({
+  order,
+  isOpen,
+  includeAi,
+  onIncludeAiChange,
+  onClose,
+  onConfirm,
+  mutation,
+}: {
+  order: StuckOrder | null;
+  isOpen: boolean;
+  includeAi: boolean;
+  onIncludeAiChange: (next: boolean) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+  mutation: ExplainMutation;
+}) {
+  if (!order || !isOpen) return null;
+
+  const errorMessage = mutation.isError ? getErrorMessage(mutation.error, "AI explanation failed") : null;
+
+  return (
+    <Dialog isOpen={isOpen} onClose={() => (!mutation.isPending ? onClose() : null)}>
+      <DialogHeader>
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4" />
+          <DialogTitle>AI explain stuck</DialogTitle>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Send stuck order context to the diagnostics endpoint and get blockers plus recommended actions.
+        </div>
+      </DialogHeader>
+      <DialogContent>
+        <div className="space-y-4 text-sm">
+          <div className="rounded-xl border border-border bg-card/90 p-3">
+            <div className="font-medium">Order #{order.order_id}</div>
+            <div className="text-xs text-muted-foreground">{order.reason}</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Badge variant="outline">{order.status}</Badge>
+              <Badge variant="secondary">{order.dispatch_status}</Badge>
+              <Badge variant={reasonVariant(order.reason_code)}>{order.reason_code}</Badge>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-[color:var(--primary)]"
+              checked={includeAi}
+              onChange={(event) => onIncludeAiChange(event.target.checked)}
+            />
+            Include AI metadata (model + tokens)
+          </label>
+          <div className="text-xs text-muted-foreground">
+            Calls /ops/orders/{order.order_id}/ai/explain-stuck{includeAi ? "?include_ai=1" : "?include_ai=0"}.
+          </div>
+
+          {mutation.isPending ? (
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Asking AI for diagnostics…
+            </div>
+          ) : null}
+
+          {errorMessage ? (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              {errorMessage}
+            </div>
+          ) : null}
+
+          {mutation.data ? <AiExplanationDetails result={mutation.data} /> : null}
+        </div>
+      </DialogContent>
+      <DialogFooter>
+        <Button variant="ghost" onClick={onClose} disabled={mutation.isPending}>
+          Close
+        </Button>
+        <Button onClick={onConfirm} disabled={mutation.isPending}>
+          {mutation.isPending ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Analyzing…
+            </span>
+          ) : mutation.data ? (
+            "Run again"
+          ) : (
+            "Request explanation"
+          )}
+        </Button>
+      </DialogFooter>
+    </Dialog>
+  );
+}
+
+function AiExplanationDetails({ result }: { result: OpsExplainStuckResponse }) {
+  const blockers = result.state_machine?.blockers ?? [];
+  const actions = result.suggested_next_actions ?? [];
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">AI summary</div>
+        <div className="mt-1 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+          {result.explanation ?? "No summary returned."}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-xs">
+        {result.state_machine?.current_state ? (
+          <Badge variant="outline">State {result.state_machine.current_state}</Badge>
+        ) : null}
+        {result.rid ? <Badge variant="outline">RID {result.rid}</Badge> : null}
+        {result.ai_meta?.model ? <Badge variant="secondary">{String(result.ai_meta.model)}</Badge> : null}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-lg border border-border bg-card/80 p-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Blockers</div>
+          <div className="mt-2 space-y-2">
+            {blockers.length === 0 ? (
+              <div className="text-xs text-muted-foreground">No blockers reported.</div>
+            ) : (
+              blockers.map((blocker, idx) => (
+                <div key={`${blocker.code ?? "blocker"}-${idx}`} className="rounded-md border border-border bg-background/80 p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium">{blocker.code ?? "blocker"}</div>
+                    {blocker.severity ? <Badge variant="warning">{blocker.severity}</Badge> : null}
+                  </div>
+                  {blocker.details ? (
+                    <div className="mt-1 text-xs text-muted-foreground">{blocker.details}</div>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-card/80 p-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Suggested actions</div>
+          <div className="mt-2 space-y-2">
+            {actions.length === 0 ? (
+              <div className="text-xs text-muted-foreground">No actions suggested.</div>
+            ) : (
+              actions.map((action, idx) => (
+                <div key={`${action.action ?? "action"}-${idx}`} className="rounded-md border border-border bg-background/80 p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium">{action.action ?? "action"}</div>
+                    {action.priority ? <Badge variant="outline">{action.priority}</Badge> : null}
+                  </div>
+                  {action.payload ? (
+                    <pre className="mt-2 overflow-auto rounded-md bg-muted/30 p-2 text-xs font-mono">
+                      {JSON.stringify(action.payload, null, 2)}
+                    </pre>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>
