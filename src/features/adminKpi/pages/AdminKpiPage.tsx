@@ -11,7 +11,7 @@ import { KpiCard } from "@/ui/kpi/KpiCard";
 import { KpiGrid } from "@/ui/kpi/KpiGrid";
 import { KpiRangePicker, type KpiRangeValue } from "@/ui/kpi/KpiRangePicker";
 import { normalizeAdminRange, resolveAdminRangeDates, useAdminFinance, useAdminSystemStatus } from "../hooks";
-import { useOpsOverview } from "@/features/opsKpi/hooks";
+import { useOpsFraud, useOpsOverview } from "@/features/opsKpi/hooks";
 
 const ALLOWED_ROLES: Role[] = ["admin", "system"];
 
@@ -48,6 +48,17 @@ function formatBoolean(ok?: boolean | null) {
   return ok ? "OK" : "Check";
 }
 
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString();
+  } catch {
+    return value;
+  }
+}
+
 export function AdminKpiPage() {
   const { viewer } = useAuth();
   const allowed = hasAccess(viewer?.roles);
@@ -68,24 +79,32 @@ export function AdminKpiPage() {
   const overviewQuery = useOpsOverview(range, allowed);
   const financeQuery = useAdminFinance(allowed);
   const systemQuery = useAdminSystemStatus(allowed);
+  const fraudQuery = useOpsFraud(range, allowed);
 
   const isLoading = overviewQuery.isLoading && !overviewQuery.data;
-  const hasError = overviewQuery.isError || financeQuery.isError || systemQuery.isError;
+  const hasError = overviewQuery.isError || financeQuery.isError || systemQuery.isError || fraudQuery.isError;
   const firstError =
     (overviewQuery.error as Error | undefined)?.message ||
     (financeQuery.error as Error | undefined)?.message ||
-    (systemQuery.error as Error | undefined)?.message;
+    (systemQuery.error as Error | undefined)?.message ||
+    (fraudQuery.error as Error | undefined)?.message;
 
   const data = overviewQuery.data;
   const finance = financeQuery.data;
   const system = systemQuery.data;
+  const fraud = fraudQuery.data;
 
   const isEmpty = data && data.orders.total === 0;
 
   const [refreshing, setRefreshing] = React.useState(false);
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.allSettled([overviewQuery.refetch(), financeQuery.refetch(), systemQuery.refetch()]);
+    await Promise.allSettled([
+      overviewQuery.refetch(),
+      financeQuery.refetch(),
+      systemQuery.refetch(),
+      fraudQuery.refetch(),
+    ]);
     setRefreshing(false);
   };
 
@@ -188,6 +207,17 @@ export function AdminKpiPage() {
   const cacheOk = system?.checks?.cache?.ok ?? null;
   const failedJobs = system?.queue?.failed_jobs ?? null;
 
+  const lastReport = finance?.reconciliation?.last_report;
+  const lastReportDelta = typeof lastReport?.delta === "number" ? lastReport.delta : null;
+  const walletMismatchCount = lastReportDelta === null ? null : Math.abs(lastReportDelta);
+  const driverAdjustments = fraud?.signals?.wallet_adjustments?.driver_wallet_adjustments ?? 0;
+  const rewardAdjustments = fraud?.signals?.wallet_adjustments?.reward_wallet_adjustments ?? 0;
+  const totalAdjustments = driverAdjustments + rewardAdjustments;
+  const auditAlerts = fraud?.signals?.audit_refund_related_actions ?? null;
+  const settlementBacklog = finance?.requests?.cashouts_pending ?? null;
+  const platformSignalsLoading =
+    (fraudQuery.isLoading && !fraud) || (financeQuery.isLoading && !finance);
+
   return (
     <div className="space-y-5 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -231,6 +261,69 @@ export function AdminKpiPage() {
             <KpiCard title="Active drivers" value={formatNumber(data.drivers.active)} subtitle="Seen in last 10m" />
             <KpiCard title="Idle drivers" value={formatNumber(data.drivers.idle)} subtitle="Away or waiting" />
           </KpiGrid>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Platform health signals</CardTitle>
+          <div className="text-sm text-muted-foreground">
+            Wallet reconcile, refund/audit alerts, and settlement readiness — directly from ops/finance APIs.
+          </div>
+        </CardHeader>
+        <CardContent>
+          {platformSignalsLoading ? (
+            <KpiGrid>
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <KpiCard key={`plat-${idx}`} title="Loading" loading />
+              ))}
+            </KpiGrid>
+          ) : !finance && !fraud ? (
+            <div className="text-sm text-muted-foreground">Platform signals unavailable. Refresh or check permissions.</div>
+          ) : (
+            <div className="space-y-3">
+              <KpiGrid>
+                <KpiCard
+                  title="Wallet mismatches"
+                  value={walletMismatchCount === null ? "n/a" : formatNumber(walletMismatchCount)}
+                  subtitle={lastReport
+                    ? `Report #${lastReport.id} · ${formatDateTime(lastReport.created_at)}`
+                    : "Latest wallet:reconcile run not found"}
+                  deltaLabel={lastReport?.is_dry_run ? "Dry run" : lastReport?.repaired ? "Repaired" : undefined}
+                  deltaTrend={walletMismatchCount && walletMismatchCount > 0 ? "down" : "up"}
+                />
+                <KpiCard
+                  title="Refund / audit alerts"
+                  value={auditAlerts === null ? "n/a" : formatNumber(auditAlerts)}
+                  subtitle="Ops fraud signals that touched wallets"
+                  deltaTrend={auditAlerts && auditAlerts > 0 ? "down" : "up"}
+                />
+                <KpiCard
+                  title="Wallet adjustments"
+                  value={formatNumber(totalAdjustments)}
+                  subtitle={`Driver ${formatNumber(driverAdjustments)} · Reward ${formatNumber(rewardAdjustments)}`}
+                  deltaTrend={totalAdjustments > 0 ? "down" : "up"}
+                />
+                <KpiCard
+                  title="Settlement blockers"
+                  value={settlementBacklog === null ? "n/a" : formatNumber(settlementBacklog)}
+                  subtitle="Cashouts pending finance review"
+                  deltaTrend={settlementBacklog && settlementBacklog > 0 ? "down" : "up"}
+                />
+              </KpiGrid>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="secondary" size="sm">
+                  <Link to="/finance/reconcile">Review reconcile reports</Link>
+                </Button>
+                <Button asChild variant="secondary" size="sm">
+                  <Link to="/ops/kpi?view=fraud">Open ops fraud</Link>
+                </Button>
+                <Button asChild variant="secondary" size="sm">
+                  <Link to="/admin/cashouts">Process cashouts</Link>
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

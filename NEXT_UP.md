@@ -1,3 +1,3 @@
 # NEXT_UP.md
 
-## Task: Extend the Admin KPI page (`/admin/kpi`) with the platform health signals exposed by the API (wallet mismatches, refund/audit alerts, settlement blockers). Keep every KPI card API-driven, add drilldown CTAs where applicable, and mirror the loading/error/empty states from the ops dashboard.
+## Task: Lock down the Admin KPI entry point. Hide the `/admin/kpi` nav for non-admin/system roles and ensure unauthorized roles always see the Guarded/Unauthorized screen (no stale caches letting them through). Update any shared navigation or quick links accordingly.
