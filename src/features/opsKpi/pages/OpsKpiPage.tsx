@@ -66,6 +66,37 @@ export function OpsKpiPage() {
 
   const { startDate, endDate } = React.useMemo(() => resolveOpsRangeDates(range), [range]);
 
+  const rangeEntries = React.useMemo(() => {
+    const entries: [string, string][] = [];
+    if (range) entries.push(["range", range]);
+    if (startDate) entries.push(["start", startDate]);
+    if (endDate) entries.push(["end", endDate]);
+    return entries;
+  }, [range, startDate, endDate]);
+
+  const buildRangeHref = React.useCallback(
+    (path: string, extra?: Record<string, string | null | undefined>) => {
+      const params = new URLSearchParams(rangeEntries);
+      if (extra) {
+        Object.entries(extra).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== "") {
+            params.set(key, value);
+          }
+        });
+      }
+      const qs = params.toString();
+      return qs ? `${path}?${qs}` : path;
+    },
+    [rangeEntries]
+  );
+
+  const opsDispatchHref = React.useMemo(() => buildRangeHref("/ops/dispatch"), [buildRangeHref]);
+  const driverRosterHref = React.useMemo(
+    () => buildRangeHref("/ops/dispatch", { panel: "drivers" }),
+    [buildRangeHref]
+  );
+  const stuckOrdersHref = React.useMemo(() => buildRangeHref("/ops/orders/stuck"), [buildRangeHref]);
+
   const overviewQuery = useOpsOverview(range, allowed);
   const inventoryQuery = useOpsInventory(range, allowed, undefined);
   const parcelCodQuery = useOpsParcelCod(allowed);
@@ -114,7 +145,7 @@ export function OpsKpiPage() {
           icon={Shield}
           actions={
             <Button asChild>
-              <Link to="/ops/dispatch">Go to Ops Dispatch</Link>
+              <Link to={opsDispatchHref}>Go to Ops Dispatch</Link>
             </Button>
           }
         />
@@ -154,7 +185,7 @@ export function OpsKpiPage() {
                 {refreshing ? "Retrying…" : "Try again"}
               </Button>
               <Button asChild variant="secondary">
-                <Link to="/ops/dispatch">Go to Ops Dispatch</Link>
+                <Link to={opsDispatchHref}>Go to Ops Dispatch</Link>
               </Button>
             </div>
           }
@@ -182,7 +213,7 @@ export function OpsKpiPage() {
               <div className="flex flex-wrap gap-2">
                 <Button variant="secondary" onClick={() => handleRangeChange("7d")}>View last 7 days</Button>
                 <Button asChild>
-                  <Link to="/ops/dispatch">Open Ops Dispatch</Link>
+                  <Link to={opsDispatchHref}>Open Ops Dispatch</Link>
                 </Button>
               </div>
             }
@@ -191,6 +222,8 @@ export function OpsKpiPage() {
       </div>
     );
   }
+
+  const stuckOrdersTotal = data.orders.by_status?.stuck ?? data.orders.pending ?? 0;
 
   return (
     <div className="space-y-5 p-4">
@@ -222,10 +255,28 @@ export function OpsKpiPage() {
         </CardHeader>
         <CardContent>
           <KpiGrid>
-            <KpiCard title="Orders total" value={formatNumber(data.orders.total)} subtitle="All orders created" />
+            <KpiCard
+              title="Orders total"
+              value={formatNumber(data.orders.total)}
+              subtitle="All orders created"
+              action={
+                <Button asChild size="sm" variant="secondary">
+                  <Link to={opsDispatchHref}>Open dispatch funnel</Link>
+                </Button>
+              }
+            />
             <KpiCard title="Completed" value={formatNumber(data.orders.completed)} subtitle="Delivered / completed" />
             <KpiCard title="Cancelled" value={formatNumber(data.orders.cancelled)} subtitle="Cancelled or failed" />
-            <KpiCard title="Pending" value={formatNumber(data.orders.pending)} subtitle="Awaiting assignment" />
+            <KpiCard
+              title="Stuck / pending"
+              value={formatNumber(stuckOrdersTotal)}
+              subtitle="Needs driver follow-up"
+              action={
+                <Button asChild size="sm" variant="secondary">
+                  <Link to={stuckOrdersHref}>Review stuck orders</Link>
+                </Button>
+              }
+            />
             <KpiCard
               title="Revenue"
               value={formatCurrency(data.finance.revenue_total)}
@@ -236,7 +287,16 @@ export function OpsKpiPage() {
               value={`${(data.delivery.avg_delivery_minutes ?? 0).toFixed(1)} min`}
               subtitle="Accepted → delivered"
             />
-            <KpiCard title="Active drivers" value={formatNumber(data.drivers.active)} subtitle="Seen in last 10m" />
+            <KpiCard
+              title="Active drivers"
+              value={formatNumber(data.drivers.active)}
+              subtitle="Seen in last 10m"
+              action={
+                <Button asChild size="sm" variant="secondary">
+                  <Link to={driverRosterHref}>Open driver roster</Link>
+                </Button>
+              }
+            />
             <KpiCard title="Idle drivers" value={formatNumber(data.drivers.idle)} subtitle="Away or waiting" />
           </KpiGrid>
         </CardContent>

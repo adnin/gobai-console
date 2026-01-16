@@ -1,3 +1,3 @@
 # NEXT_UP.md
 
-## Task: Wire the Ops KPI page (`/ops/kpi`) drilldowns so each KPI card links to the right screen (stuck orders list, driver roster, dispatch funnel). Use the API-provided totals for the counts shown on the cards, and ensure the drilldown CTAs carry the current range filters.
+## Task: Extend the Admin KPI page (`/admin/kpi`) with the platform health signals exposed by the API (wallet mismatches, refund/audit alerts, settlement blockers). Keep every KPI card API-driven, add drilldown CTAs where applicable, and mirror the loading/error/empty states from the ops dashboard.

@@ -13,6 +13,7 @@ export type KpiCardProps = {
   deltaTrend?: KpiTrend;
   loading?: boolean;
   className?: string;
+  action?: React.ReactNode;
 };
 
 const trendIcon: Record<KpiTrend, typeof TrendingUp> = {
@@ -29,6 +30,7 @@ export function KpiCard({
   deltaTrend = "flat",
   loading = false,
   className,
+  action,
 }: KpiCardProps) {
   const TrendIcon = trendIcon[deltaTrend];
 
@@ -60,6 +62,8 @@ export function KpiCard({
           <span>{deltaLabel}</span>
         </div>
       ) : null}
+
+      {!loading && action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }

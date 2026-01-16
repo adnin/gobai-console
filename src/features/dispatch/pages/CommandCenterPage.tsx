@@ -52,7 +52,7 @@ import {
   RealtimeEventTypes,
   getRealtimeEventOrderId,
 } from "@/lib/realtimeEvents";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 type OfferLite = {
   orderId: number;
@@ -165,6 +165,8 @@ export function CommandCenterPage({ mode = "ops" }: { mode?: "ops" | "partner" }
 
   const { token, viewer } = useAuth();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
+  const panelParam = searchParams.get("panel");
 
   // Force a re-render tick so countdown badges (offer/buffer/SLA) feel realtime.
   const [nowTick, setNowTick] = React.useState<number>(() => Date.now());
@@ -228,6 +230,20 @@ export function CommandCenterPage({ mode = "ops" }: { mode?: "ops" | "partner" }
       );
     } catch {}
   }, [rightHidden]);
+
+  React.useEffect(() => {
+    if (panelParam !== "drivers") return;
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    setRightHidden(false);
+    setRightCollapsed(false);
+    const timer = window.setTimeout(() => {
+      document.getElementById("ops-driver-roster-panel")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [panelParam]);
 
   const [fullScreen, setFullScreen] = React.useState<boolean>(() => {
     try {
@@ -1003,7 +1019,11 @@ export function CommandCenterPage({ mode = "ops" }: { mode?: "ops" | "partner" }
                   </div>
                 </div>
               ) : (
-                <div className="h-full min-h-0 overflow-y-auto space-y-3 pr-1">
+                <div
+                  id="ops-driver-roster-panel"
+                  tabIndex={-1}
+                  className="h-full min-h-0 overflow-y-auto space-y-3 pr-1"
+                >
                   <Card>
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">

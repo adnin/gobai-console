@@ -52,8 +52,8 @@ API is ready → build the web.
 ## B2) Ops KPI Dashboard (primary)
 API exists but schema may be incomplete → proceed safely.
 - [x] Ops KPI page `/ops/kpi`
-- [ ] Use API-driven fields only (no guessing). If `/ops/analytics/overview` schema is empty, use fallback endpoints or wait for schema patch.
-- [ ] Drilldowns: stuck orders list, driver list, dispatch funnel (as endpoints allow)
+- [x] Use API-driven fields only (no guessing). If `/ops/analytics/overview` schema is empty, use fallback endpoints or wait for schema patch.
+- [x] Drilldowns: stuck orders list, driver list, dispatch funnel (as endpoints allow)
 - [ ] Role gating: ops/admin only
 
 ## B3) Admin KPI Dashboard
