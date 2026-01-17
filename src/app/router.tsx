@@ -33,6 +33,7 @@ import { AdminCashinsPage } from "@/features/admin/pages/AdminCashinsPage";
 import { AdminCashoutsPage } from "@/features/admin/pages/AdminCashoutsPage";
 import { AdminReceiptsPage } from "@/features/admin/pages/AdminReceiptsPage";
 import { AdminOrderPaymentPage } from "@/features/admin/pages/AdminOrderPaymentPage";
+import { AdminUsersPage } from "@/features/admin/pages/AdminUsersPage";
 import { SupportHomePage } from "@/features/support/pages/SupportHomePage";
 import { SupportDisputesPage } from "@/features/support/pages/SupportDisputesPage";
 import { SupportDisputeDetailPage } from "@/features/support/pages/SupportDisputeDetailPage";
@@ -506,6 +507,15 @@ export function AppRouter() {
             element={
               <RequireRoles roles={["admin", "system"]}>
                 <AdminDriversPage />
+              </RequireRoles>
+            }
+          />
+
+          <Route
+            path="admin/users"
+            element={
+              <RequireRoles roles={["admin", "system"]}>
+                <AdminUsersPage />
               </RequireRoles>
             }
           />

@@ -116,6 +116,12 @@ export function AdminHomePage() {
       badge: undefined,
     },
     {
+      title: "Admin users",
+      desc: "Search users and manage role assignments.",
+      to: "/admin/users",
+      badge: undefined,
+    },
+    {
       title: "Promotions",
       desc: "Create and manage promotional codes.",
       to: "/admin/promotions",

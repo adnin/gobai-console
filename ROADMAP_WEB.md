@@ -31,6 +31,7 @@ Goal: make development predictable, avoid blockers, keep scope safe.
 - [x] Protected routes + Forbidden/Unauthorized pages
 - [x] Role-aware navigation (hide unauthorized items)
 - [x] Global error boundary + safe fallback UI
+- [x] Admin user role management page (`/admin/users`)
 
 ## A2) KPI UI system (reusable, scalable)
 - [x] `KpiCard` (value, subtitle, optional delta/trend, tooltip, loading skeleton)
