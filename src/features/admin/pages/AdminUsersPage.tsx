@@ -26,6 +26,21 @@ type AdminUserRow = {
 };
 
 const ALLOWED_ROLES: Role[] = ["admin", "system"];
+const ROLE_OPTIONS = [
+  "customer",
+  "driver",
+  "merchant",
+  "partner",
+  "partner_ops",
+  "fleet_admin",
+  "dispatcher",
+  "ops",
+  "support",
+  "finance",
+  "finance_lite",
+  "admin",
+  "system",
+];
 
 function resolvePrimaryRole(user: AdminUserRow): string | null {
   if (user.role_name) return String(user.role_name);
@@ -53,15 +68,11 @@ function resolveAdditionalRoles(user: AdminUserRow): string[] {
   return primary ? unique.filter((r) => r !== primary) : unique;
 }
 
-function parseRoleInput(value: string): string[] {
-  return Array.from(
-    new Set(
-      value
-        .split(",")
-        .map((r) => r.trim().toLowerCase())
-        .filter((r) => r.length > 0)
-    )
-  );
+function resolveCurrentRoles(user: AdminUserRow): string[] {
+  const primary = resolvePrimaryRole(user);
+  const additional = resolveAdditionalRoles(user);
+  const combined = [...(primary ? [primary] : []), ...additional];
+  return Array.from(new Set(combined.map((r) => r.trim()).filter((r) => r.length > 0)));
 }
 
 export function AdminUsersPage() {
@@ -77,10 +88,9 @@ export function AdminUsersPage() {
   const [modalState, setModalState] = React.useState<{
     open: boolean;
     user: AdminUserRow | null;
-    addRoles: string;
-    removeRoles: string;
+    selectedRoles: string[];
     error: string | null;
-  }>({ open: false, user: null, addRoles: "", removeRoles: "", error: null });
+  }>({ open: false, user: null, selectedRoles: [], error: null });
 
   const params = React.useMemo(
     () => ({ q: qText || undefined, role: role || undefined, per_page: 25, page: 1 }),
@@ -100,7 +110,7 @@ export function AdminUsersPage() {
     onSuccess: async () => {
       toast.ok("Roles updated.");
       await qc.invalidateQueries({ queryKey: ["admin", "users"] });
-      setModalState({ open: false, user: null, addRoles: "", removeRoles: "", error: null });
+      setModalState({ open: false, user: null, selectedRoles: [], error: null });
     },
     onError: (err) => {
       toast.err(getErrorMessage(err, "Failed to update roles"));
@@ -146,30 +156,31 @@ export function AdminUsersPage() {
   }
 
   const openModal = (user: AdminUserRow) => {
-    setModalState({ open: true, user, addRoles: "", removeRoles: "", error: null });
+    const current = resolveCurrentRoles(user);
+    setModalState({ open: true, user, selectedRoles: current, error: null });
   };
 
   const closeModal = () => {
     if (updateRolesM.isPending) return;
-    setModalState({ open: false, user: null, addRoles: "", removeRoles: "", error: null });
+    setModalState({ open: false, user: null, selectedRoles: [], error: null });
   };
 
   const submitRoles = () => {
     const user = modalState.user;
     if (!user) return;
-    const addRoles = parseRoleInput(modalState.addRoles);
-    const removeRoles = parseRoleInput(modalState.removeRoles);
+    const currentRoles = resolveCurrentRoles(user);
+    const selected = modalState.selectedRoles;
+    const addRoles = selected.filter((role) => !currentRoles.includes(role));
+    const removeRoles = currentRoles.filter((role) => !selected.includes(role));
 
     if (addRoles.length === 0 && removeRoles.length === 0) {
-      setModalState((prev) => ({ ...prev, error: "Provide at least one role to add or remove." }));
+      setModalState((prev) => ({ ...prev, error: "Select at least one role change." }));
       return;
     }
 
     updateRolesM.mutate({ userId: user.id, addRoles, removeRoles });
   };
 
-  const modalAddRoles = parseRoleInput(modalState.addRoles);
-  const modalRemoveRoles = parseRoleInput(modalState.removeRoles);
   const modalBusy = updateRolesM.isPending;
 
   return (
@@ -330,37 +341,54 @@ export function AdminUsersPage() {
               <div className="text-muted-foreground">{modalState.user?.name ?? "—"}</div>
             </div>
 
-            <div>
-              <div className="mb-1 text-xs text-muted-foreground">Add roles</div>
-              <Input
-                value={modalState.addRoles}
-                onChange={(e) =>
-                  setModalState((prev) => ({ ...prev, addRoles: e.target.value, error: null }))
-                }
-                placeholder="ops, support"
-              />
-            </div>
-
-            <div>
-              <div className="mb-1 text-xs text-muted-foreground">Remove roles</div>
-              <Input
-                value={modalState.removeRoles}
-                onChange={(e) =>
-                  setModalState((prev) => ({ ...prev, removeRoles: e.target.value, error: null }))
-                }
-                placeholder="support"
-              />
-            </div>
-
-            {(modalAddRoles.length > 0 || modalRemoveRoles.length > 0) && (
-              <div className="rounded-lg border border-border p-3 text-sm">
-                <div className="font-medium">Confirm changes</div>
-                <div className="mt-2 space-y-1 text-muted-foreground">
-                  <div>Add: {modalAddRoles.length ? modalAddRoles.join(", ") : "—"}</div>
-                  <div>Remove: {modalRemoveRoles.length ? modalRemoveRoles.join(", ") : "—"}</div>
-                </div>
+            <div className="rounded-lg border border-border p-3 text-sm">
+              <div className="font-medium">Current roles</div>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {resolveCurrentRoles(modalState.user ?? ({} as AdminUserRow)).length ? (
+                  resolveCurrentRoles(modalState.user ?? ({} as AdminUserRow)).map((r) => (
+                    <Badge key={`current-${r}`} variant="secondary">
+                      {r}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
               </div>
-            )}
+            </div>
+
+            <div>
+              <div className="mb-1 text-xs text-muted-foreground">Assign roles</div>
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                {ROLE_OPTIONS.map((roleOption) => {
+                  const checked = modalState.selectedRoles.includes(roleOption);
+                  return (
+                    <label key={roleOption} className="flex items-center gap-2 rounded-md border border-border px-2 py-1 text-sm">
+                      <input
+                        type="checkbox"
+                        className="size-4"
+                        checked={checked}
+                        onChange={(e) => {
+                          const nextChecked = e.target.checked;
+                          setModalState((prev) => {
+                            const set = new Set(prev.selectedRoles);
+                            if (nextChecked) {
+                              set.add(roleOption);
+                            } else {
+                              set.delete(roleOption);
+                            }
+                            return { ...prev, selectedRoles: Array.from(set), error: null };
+                          });
+                        }}
+                      />
+                      <span>{roleOption}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                Changes are saved when you confirm. Some roles may be rejected by the API if not allowed.
+              </div>
+            </div>
 
             {modalState.error && <div className="text-sm text-destructive">{modalState.error}</div>}
           </div>
