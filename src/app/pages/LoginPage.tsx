@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,10 +9,9 @@ import { defaultRouteForViewer } from "@/lib/defaultRoute";
 export function LoginPage() {
   const { login } = useAuth();
   const nav = useNavigate();
-  const loc = useLocation() as any;
 
-  const [loginValue, setLoginValue] = React.useState("ops@gobai.test");
-  const [password, setPassword] = React.useState("password");
+  const [loginValue, setLoginValue] = React.useState("admin@gobai.test");
+  const [password, setPassword] = React.useState("Password123!");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -22,8 +21,6 @@ export function LoginPage() {
     setError(null);
     try {
       await login({ login: loginValue.trim(), password });
-
-      const from = loc?.state?.from as string | undefined;
 
       // Role-aware landing route (fixes merchant... etc)
       // Use localStorage snapshot because context state updates async.
@@ -35,7 +32,7 @@ export function LoginPage() {
         viewerSnapshot = null;
       }
 
-      nav(from || defaultRouteForViewer(viewerSnapshot), { replace: true });
+      nav(defaultRouteForViewer(viewerSnapshot), { replace: true });
     } catch (err: any) {
       setError(err?.message ?? "Login failed");
     } finally {

@@ -116,8 +116,8 @@ export function AppShell() {
           <div className="flex items-center gap-2 border-b border-border px-4 py-4">
             <LayoutGrid className="size-5" />
             <div className="min-w-0">
-              <div className="text-sm font-semibold leading-tight">Command UI</div>
-              <div className="text-xs text-muted-foreground leading-tight">Role-based console</div>
+              <div className="text-sm font-semibold leading-tight">GOBAI Console</div>
+              <div className="text-xs text-muted-foreground leading-tight">Role-ready ops hub</div>
             </div>
           </div>
 
