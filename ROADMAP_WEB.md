@@ -20,6 +20,7 @@ Goal: make development predictable, avoid blockers, keep scope safe.
 - [x] Remove/disable legacy web test suites that reference deleted modules (only if blocking KPI work)
 - [x] Typecheck baseline cleanup task (separate PR): fix the top offenders causing mass TS errors
 - [x] Add "Known Issues" section to README (until baseline is green)
+- [x] Production env config files + runtime verification log
 
 ---
 

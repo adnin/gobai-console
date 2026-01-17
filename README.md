@@ -9,20 +9,25 @@ This is a **role-based** React web console with a working Ops Dispatch board and
 - Logout route may not exist; we clear token locally, and call `/auth/logout` best-effort if you add it later.
 
 ## Configure
-Create `.env.local`:
+1. `.env.development` ships with sane local defaults (Laravel backend on `http://localhost:8000`). Update it only if your local stack uses a different host/port.
+2. `.env.production` is committed with the Gobai production endpoints. Override via `.env.production.local` if you need a different target for builds.
+3. Copy `.env.example` to `.env.local` (and `.env.production.local` if needed) to keep secrets or developer-specific overrides out of git.
 
-```env
-VITE_API_BASE_URL=https://your-api.com/api/v1
-VITE_AUTH_LOGIN_PATH=/auth/login
-VITE_AUTH_ME_PATH=/user
-VITE_AUTH_LOGOUT_PATH=/auth/logout
-```
+Every mode follows Vite's loading order, so `.env.local` overrides `.env.development`, and `.env.production.local` overrides `.env.production` during `yarn build`.
 
 ## Run
 ```bash
 yarn
 yarn dev
 ```
+
+## Build (production)
+```bash
+yarn build
+```
+The build process automatically consumes `.env.production` (plus `.env.production.local` overrides) so emitted assets target `https://api.gobai.app` and `https://api.gobai.app/api/v1`.
+
+On boot the app logs a `[RuntimeConfig]` entry to confirm the resolved API and socket URLs. In production the log highlights whether the values match the Gobai endpoints, making it easy to spot misconfigured deployments without instrumenting the API.
 
 ## UI docs
 
