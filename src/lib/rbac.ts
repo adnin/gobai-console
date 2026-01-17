@@ -2,6 +2,9 @@ export type Role =
   | "merchant"
   | "admin"
   | "ops"
+  | "fleet_admin"
+  | "dispatcher"
+  | "finance_lite"
   | "partner_ops"
   | "partner"
   | "driver"
@@ -13,6 +16,7 @@ export type Viewer = {
   id: number;
   name: string;
   roles: Role[];
+  tenantId?: number | null;
 };
 
 export function hasRole(viewer: Viewer | null | undefined, role: Role) {

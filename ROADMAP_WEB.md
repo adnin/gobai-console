@@ -115,6 +115,16 @@ API exists but schema may be incomplete → proceed safely.
 
 ---
 
+# Milestone H — Dispatch SaaS (multi-tenant)
+
+- [x] Tenant-scoped auth headers for Dispatch SaaS requests
+- [x] Dispatch workflow (create job, assignment, tracking, POD close)
+- [x] Usage & billing summary page (finance-lite/fleet admin)
+- [x] Role-aware gating for fleet admin/dispatcher/finance-lite
+- [x] Policy + tenant error UX for Dispatch SaaS
+
+---
+
 # Release Gate (Web)
 - [x] Role-based KPI dashboards live (Merchant + Ops + Admin)
 - [x] Ops can search + view timeline + force-cancel + reassign without DB edits

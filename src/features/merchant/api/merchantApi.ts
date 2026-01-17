@@ -1,4 +1,4 @@
-import { apiFetch, envStr, API_BASE_URL, ApiError, emitGlobalApiError } from "@/lib/http";
+import { apiFetch, envStr, API_BASE_URL, ApiError, emitGlobalApiError, getStoredTenantId } from "@/lib/http";
 
 export type MerchantOrderLite = {
   id: number;
@@ -424,6 +424,7 @@ export async function merchantCreateProduct(token: string, input: {
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${token}`,
+      ...(getStoredTenantId() ? { "X-Tenant-Id": String(getStoredTenantId()) } : {}),
     },
     body: form,
   });
@@ -471,6 +472,7 @@ export async function merchantUpdateProduct(token: string, productId: number, in
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${token}`,
+      ...(getStoredTenantId() ? { "X-Tenant-Id": String(getStoredTenantId()) } : {}),
     },
     body: (() => {
       form.set("_method", "PUT");

@@ -38,6 +38,20 @@ const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhos
 // Keep it aligned with apiFetch's internal base.
 export const API_BASE_URL = API_BASE;
 
+export function getStoredTenantId(): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem("dispatch_web_viewer");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const v = parsed?.tenantId ?? parsed?.tenant_id ?? parsed?.tenant?.id;
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Minimal fetch wrapper for a Laravel API.
  * - Adds JSON headers
@@ -46,10 +60,19 @@ export const API_BASE_URL = API_BASE;
  */
 export async function apiFetch<T>(
   path: string,
-  init?: RequestInit & { token?: string | null; silent?: boolean }
+  init?: RequestInit & { token?: string | null; silent?: boolean; tenantId?: number | string | null }
 ): Promise<T> {
   const url = `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
   const token = (init as any)?.token ?? null;
+  const explicitTenantId = (init as any)?.tenantId ?? null;
+
+  const tenantId = (() => {
+    if (explicitTenantId !== null && explicitTenantId !== undefined && explicitTenantId !== "") {
+      const n = Number(explicitTenantId);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    return getStoredTenantId();
+  })();
 
   const headers = new Headers(init?.headers ?? {});
   headers.set("Accept", "application/json");
@@ -60,6 +83,7 @@ export async function apiFetch<T>(
   }
 
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (tenantId && !headers.has("X-Tenant-Id")) headers.set("X-Tenant-Id", String(tenantId));
 
   const res = await fetch(url, { ...init, headers });
 

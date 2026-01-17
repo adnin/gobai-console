@@ -58,14 +58,31 @@ function canonicalizeRoleName(raw: unknown): Role | null {
   if (!v) return null;
 
   // direct hits
-  const direct: Role[] = ["merchant", "admin", "ops", "partner", "driver", "support", "finance", "system"];
+  const direct: Role[] = [
+    "merchant",
+    "admin",
+    "ops",
+    "fleet_admin",
+    "dispatcher",
+    "finance_lite",
+    "partner",
+    "driver",
+    "support",
+    "finance",
+    "system"
+  ];
   if ((direct as string[]).includes(v)) return v as Role;
 
   // partner-ish (backend uses partner_ops)
   if (["partner_ops", "partner", "fleet", "dsp"].includes(v)) return "partner";
 
   // ops-ish
-  if (["operator", "dispatcher", "control_tower"].includes(v)) return "ops";
+  if (["operator", "control_tower"].includes(v)) return "ops";
+
+  // dispatch SaaS roles
+  if (["fleet-admin", "fleetadmin", "fleet_admin"].includes(v)) return "fleet_admin";
+  if (["dispatcher"].includes(v)) return "dispatcher";
+  if (["finance-lite", "finance_lite", "financelite"].includes(v)) return "finance_lite";
 
   // partner-ish (fleet owner / DSP)
   if (["partner", "partner_ops", "fleet", "dsp"].includes(v)) return "partner";
@@ -153,7 +170,15 @@ function makeViewerFromUser(user: any): Viewer {
   return {
     id: Number(user?.id ?? 0) || 0,
     name: String(user?.name ?? user?.full_name ?? user?.email ?? "User"),
-    roles
+    roles,
+    tenantId:
+      typeof user?.tenant_id === "number"
+        ? user.tenant_id
+        : typeof user?.tenantId === "number"
+          ? user.tenantId
+          : typeof user?.tenant?.id === "number"
+            ? user.tenant.id
+            : null,
   };
 }
 

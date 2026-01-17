@@ -8,6 +8,7 @@ import LogoutPage from "@/app/pages/LogoutPage";
 
 import { CommandCenterPage } from "@/features/dispatch/pages/CommandCenterPage";
 import PartnerDispatchPage from "@/features/dispatch/pages/PartnerDispatchPage";
+import { PartnerUsagePage } from "@/features/dispatch/pages/PartnerUsagePage";
 import { PartnerApplyPage } from "@/features/partner/pages/PartnerApplyPage";
 import { PartnerHomePage } from "@/features/partner/pages/PartnerHomePage";
 import { MerchantHomePage } from "@/features/merchant/pages/MerchantHomePage";
@@ -174,8 +175,17 @@ export function AppRouter() {
           <Route
             path="partner/dispatch"
             element={
-              <RequireRoles roles={["partner_ops", "partner", "admin", "system"]}>
+              <RequireRoles roles={["partner_ops", "partner", "fleet_admin", "dispatcher", "admin", "system"]}>
                 <PartnerDispatchPage />
+              </RequireRoles>
+            }
+          />
+
+          <Route
+            path="partner/usage"
+            element={
+              <RequireRoles roles={["fleet_admin", "finance_lite", "admin", "system"]}>
+                <PartnerUsagePage />
               </RequireRoles>
             }
           />

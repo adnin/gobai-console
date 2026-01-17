@@ -17,6 +17,8 @@ export function defaultRouteForViewer(viewer: Viewer | null | undefined): string
   if (roles.has("system")) return "/system";
   if (roles.has("admin")) return "/admin";
   if (roles.has("ops")) return "/ops";
+  if (roles.has("fleet_admin") || roles.has("dispatcher")) return "/partner/dispatch";
+  if (roles.has("finance_lite")) return "/partner/usage";
   if (roles.has("partner_ops") || roles.has("partner")) return "/partner";
   if (roles.has("driver")) return "/driver/wallet";
   if (roles.has("merchant")) return "/merchant";

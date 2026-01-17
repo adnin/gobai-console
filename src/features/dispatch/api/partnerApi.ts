@@ -43,6 +43,136 @@ export async function partnerOfferDriver(
   });
 }
 
+export type PartnerCreateOrderInput = {
+  pickup_address: string;
+  pickup_latitude: number;
+  pickup_longitude: number;
+  dropoff_address: string;
+  dropoff_latitude: number;
+  dropoff_longitude: number;
+  vehicle_type_id: number;
+  distance?: number | null;
+  total_driver_fare?: number | null;
+  total_transaction_fare?: number | null;
+  total_price?: number | null;
+  payment_method?: "gcash_qr" | "cod" | "wallet" | null;
+  payment_status?: string | null;
+  trip_type?: "oneway" | "roundtrip" | null;
+  flow_type?: "transport" | "parcel" | "store" | null;
+  notes?: string | null;
+};
+
+export type PartnerDispatchOrder = {
+  id: number;
+  reference_no: string;
+  status: string;
+  dispatch_status: string;
+  dispatch_at: string | null;
+  pickup_address: string;
+  dropoff_address: string;
+  distance?: number | null;
+  driver?: {
+    id: number;
+    name: string;
+    mobile?: string | null;
+    status?: string;
+    latitude?: string | number | null;
+    longitude?: string | number | null;
+  } | null;
+};
+
+export async function partnerCreateOrder(
+  token: string,
+  input: PartnerCreateOrderInput
+): Promise<{ data: PartnerDispatchOrder }> {
+  return apiFetch(`/partner/orders`, {
+    method: "POST",
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export async function partnerOrder(token: string, orderId: number): Promise<{ data: PartnerDispatchOrder }> {
+  return apiFetch(`/partner/orders/${orderId}`, { method: "GET", token });
+}
+
+export type PartnerTracking = {
+  order_id: number;
+  reference_no: string;
+  status: string;
+  dispatch_status: string;
+  dispatch_at: string | null;
+  driver: {
+    id: number;
+    name: string;
+    mobile?: string | null;
+    status: string;
+    latitude?: string | null;
+    longitude?: string | null;
+  } | null;
+  timestamps: {
+    assigned_at: string | null;
+    delivered_at: string | null;
+    completed_at: string | null;
+  };
+};
+
+export async function partnerTracking(token: string, orderId: number): Promise<{ data: PartnerTracking }> {
+  return apiFetch(`/partner/orders/${orderId}/tracking`, { method: "GET", token });
+}
+
+export type PartnerPodCloseResponse = {
+  ok: boolean;
+  order: PartnerDispatchOrder;
+};
+
+export async function partnerPodClose(
+  token: string,
+  orderId: number,
+  input: { latitude?: number | null; longitude?: number | null; pod_notes?: string | null }
+): Promise<PartnerPodCloseResponse> {
+  return apiFetch(`/partner/orders/${orderId}/pod-close`, {
+    method: "POST",
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export type PartnerUsageResponse = {
+  window: {
+    start: string;
+    end: string;
+    days: string;
+  };
+  usage: {
+    jobs_total: number;
+    jobs_completed: number;
+    jobs_cancelled: number;
+    active_drivers: number;
+    seats_total: number;
+  };
+  billing: {
+    currency: string;
+    base_fee_points: number;
+    per_job_points: number;
+    per_active_driver_points: number;
+    per_seat_points: number;
+    line_items: {
+      jobs: string;
+      active_drivers: string;
+      seats: string;
+    };
+    total_points: string;
+  };
+};
+
+export async function partnerUsage(
+  token: string,
+  params?: { start?: string; end?: string; since_days?: number }
+): Promise<PartnerUsageResponse> {
+  return apiFetch(`/partner/usage${qs(params ?? {})}`, { method: "GET", token });
+}
+
 export async function partnerAssignDriver(
   token: string,
   input: { orderId: number; driverId: number; note?: string }
