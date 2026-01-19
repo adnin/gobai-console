@@ -43,6 +43,91 @@ function isImageUrl(u?: string | null): boolean {
   return [".png", ".jpg", ".jpeg", ".webp", ".gif"].some((ext) => s.endsWith(ext));
 }
 
+function ReceiptPreview({ url, id }: { url?: string | null; id?: any }) {
+  const [loading, setLoading] = React.useState(false);
+  const [blobUrl, setBlobUrl] = React.useState<string | null>(null);
+  const hiddenBtnRef = React.useRef<HTMLButtonElement | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [blobUrl]);
+
+  const resolved = resolveUrl(url ?? undefined);
+
+  if (!url) return <div className="text-xs text-muted-foreground">—</div>;
+
+  if (isImageUrl(resolved)) {
+    return (
+      <PhotoProvider>
+        <PhotoView src={resolved!}>
+          <button type="button" className="overflow-hidden rounded-md border border-border bg-card p-1" title="Click to inspect">
+            <img src={resolved!} alt={`Receipt ${id}`} className="h-8 w-12 object-cover" />
+          </button>
+        </PhotoView>
+      </PhotoProvider>
+    );
+  }
+
+  const isStream = typeof resolved === "string" && /\/files\/stream\//.test(resolved);
+
+  async function handleFetchPreview(e: React.MouseEvent) {
+    e.preventDefault();
+    if (!resolved) return;
+    if (!isStream) {
+      window.open(resolved, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await fetch(resolved);
+      if (!res.ok) throw new Error(`Failed to fetch (${res.status})`);
+      const blob = await res.blob();
+      if (!blob.type.startsWith("image/")) {
+        const obj = URL.createObjectURL(blob);
+        const w = window.open(obj, "_blank", "noopener,noreferrer");
+        // revoke after a short delay
+        setTimeout(() => URL.revokeObjectURL(obj), 5000);
+        if (!w) throw new Error("Popup blocked");
+        return;
+      }
+      const obj = URL.createObjectURL(blob);
+      setBlobUrl(obj);
+    } catch (err: any) {
+      // minimal feedback to user
+      alert(err?.message ?? "Failed to load receipt");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  React.useEffect(() => {
+    if (blobUrl && hiddenBtnRef.current) {
+      hiddenBtnRef.current.click();
+    }
+  }, [blobUrl]);
+
+  return (
+    <div className="flex items-center gap-2">
+      <button type="button" onClick={handleFetchPreview} className="text-xs text-muted-foreground underline" disabled={loading}>
+        {loading ? "Loading…" : "Open"}
+      </button>
+
+      {blobUrl ? (
+        <PhotoProvider>
+          <PhotoView src={blobUrl}>
+            <button ref={hiddenBtnRef} style={{ display: "none" }}>
+              preview
+            </button>
+          </PhotoView>
+        </PhotoProvider>
+      ) : null}
+    </div>
+  );
+}
+
 export function AdminCashinsPage() {
   const { token } = useAuth();
   const qc = useQueryClient();
@@ -139,21 +224,7 @@ export function AdminCashinsPage() {
                         </td>
                         <td className="px-3 py-2"><Badge variant="secondary">{Number(r?.amount_points ?? r?.points ?? 0).toLocaleString()} pts</Badge></td>
                         <td className="px-3 py-2">
-                          {r?.receipt_url ? (
-                            isImageUrl(r.receipt_url) ? (
-                              <PhotoProvider>
-                                <PhotoView src={resolveUrl(r.receipt_url)!}>
-                                  <button type="button" className="overflow-hidden rounded-md border border-border bg-card p-1" title="Click to inspect">
-                                    <img src={resolveUrl(r.receipt_url)!} alt={`Receipt ${r.id}`} className="h-8 w-12 object-cover" />
-                                  </button>
-                                </PhotoView>
-                              </PhotoProvider>
-                            ) : (
-                              <a className="text-xs text-muted-foreground underline" href={resolveUrl(r.receipt_url)!} target="_blank" rel="noopener noreferrer">Open</a>
-                            )
-                          ) : (
-                            <div className="text-xs text-muted-foreground">—</div>
-                          )}
+                          <ReceiptPreview url={r?.receipt_url} id={r?.id} />
                         </td>
                         <td className="px-3 py-2 hidden md:table-cell">{String(r?.created_at ?? "—")}</td>
                         <td className="px-3 py-2">{st.toUpperCase()}</td>
