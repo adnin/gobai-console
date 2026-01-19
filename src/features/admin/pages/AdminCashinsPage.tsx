@@ -10,6 +10,9 @@ import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { adminCashins, adminCashinsApprove, adminCashinsReject } from "@/features/admin/api/adminApi";
 
+import { PhotoProvider, PhotoView } from "react-photo-view";
+import "react-photo-view/dist/react-photo-view.css";
+
 function StatusPill({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
     <button
@@ -22,6 +25,22 @@ function StatusPill({ active, children, onClick }: { active: boolean; children: 
       {children}
     </button>
   );
+}
+
+function resolveUrl(u?: string | null): string | null {
+  if (!u) return null;
+  const s = String(u);
+  if (/^https?:\/\//i.test(s) || s.startsWith("data:")) return s;
+  const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000/api";
+  const PUBLIC_BASE = String(API_BASE).replace(/\/api\/?$/, "");
+  if (s.startsWith("/")) return `${PUBLIC_BASE}${s}`;
+  return `${PUBLIC_BASE}/${s}`;
+}
+
+function isImageUrl(u?: string | null): boolean {
+  if (!u) return false;
+  const s = String(u).toLowerCase();
+  return [".png", ".jpg", ".jpeg", ".webp", ".gif"].some((ext) => s.endsWith(ext));
 }
 
 export function AdminCashinsPage() {
@@ -98,6 +117,7 @@ export function AdminCashinsPage() {
                     <th className="px-3 py-2">User</th>
                     <th className="px-3 py-2">Wallet</th>
                     <th className="px-3 py-2">Points</th>
+                    <th className="px-3 py-2">Receipt</th>
                     <th className="px-3 py-2 hidden md:table-cell">Created</th>
                     <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2 w-[220px]">Actions</th>
@@ -118,6 +138,23 @@ export function AdminCashinsPage() {
                           <div className="text-xs text-muted-foreground">wallet_id: {String(r?.wallet_id ?? "—")}</div>
                         </td>
                         <td className="px-3 py-2"><Badge variant="secondary">{Number(r?.amount_points ?? r?.points ?? 0).toLocaleString()} pts</Badge></td>
+                        <td className="px-3 py-2">
+                          {r?.receipt_url ? (
+                            isImageUrl(r.receipt_url) ? (
+                              <PhotoProvider>
+                                <PhotoView src={resolveUrl(r.receipt_url)!}>
+                                  <button type="button" className="overflow-hidden rounded-md border border-border bg-card p-1" title="Click to inspect">
+                                    <img src={resolveUrl(r.receipt_url)!} alt={`Receipt ${r.id}`} className="h-8 w-12 object-cover" />
+                                  </button>
+                                </PhotoView>
+                              </PhotoProvider>
+                            ) : (
+                              <a className="text-xs text-muted-foreground underline" href={resolveUrl(r.receipt_url)!} target="_blank" rel="noopener noreferrer">Open</a>
+                            )
+                          ) : (
+                            <div className="text-xs text-muted-foreground">—</div>
+                          )}
+                        </td>
                         <td className="px-3 py-2 hidden md:table-cell">{String(r?.created_at ?? "—")}</td>
                         <td className="px-3 py-2">{st.toUpperCase()}</td>
                         <td className="px-3 py-2">
