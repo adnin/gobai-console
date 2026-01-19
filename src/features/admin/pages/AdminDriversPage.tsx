@@ -21,6 +21,9 @@ import {
   adminRejectDriverDocument,
 } from "@/features/admin/api/adminApi";
 
+import { PhotoProvider, PhotoView } from "react-photo-view";
+import "react-photo-view/dist/react-photo-view.css";
+
 function StatusPill({
   active,
   children,
@@ -136,6 +139,12 @@ function getDriverDocumentPath(doc: any): string | null {
     doc?.pivot?.path ??
     null
   );
+}
+
+function isImageUrl(u?: string | null): boolean {
+  if (!u) return false;
+  const s = String(u).toLowerCase();
+  return [".png", ".jpg", ".jpeg", ".webp", ".gif"].some((ext) => s.endsWith(ext));
 }
 
 export function AdminDriversPage() {
@@ -275,6 +284,18 @@ export function AdminDriversPage() {
         if (!res.ok) throw new Error(`Request failed (${res.status})`);
         const blob = await res.blob();
         if (controller.signal.aborted) return;
+
+        // If not an image, open in new tab (download/preview by browser)
+        if (!blob.type || !blob.type.startsWith("image/")) {
+          const obj = URL.createObjectURL(blob);
+          // Open in new tab and close modal
+          window.open(obj, "_blank", "noopener,noreferrer");
+          // revoke later
+          setTimeout(() => URL.revokeObjectURL(obj), 5000);
+          setPreviewState((prev) => ({ ...prev, loading: false, objectUrl: null }));
+          return;
+        }
+
         const objectUrl = URL.createObjectURL(blob);
         if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current);
         previewObjectUrlRef.current = objectUrl;
@@ -558,24 +579,37 @@ export function AdminDriversPage() {
                     <td className="px-3 py-2">{st}</td>
                     <td className="px-3 py-2 hidden sm:table-cell">
                       {href ? (
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            size="icon"
-                            variant="outline"
-                            aria-label="Preview document"
-                            title="Preview document"
-                            onClick={() => openPreview(d)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <a
-                            className="link underline text-xs"
-                            href={href}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Open in new tab
-                          </a>
+                        <div className="flex items-center gap-2">
+                          {isImageUrl(href) ? (
+                            <button
+                              type="button"
+                              className="overflow-hidden rounded-md border border-border bg-card p-1"
+                              title="Click to inspect"
+                              onClick={() => openPreview(d)}
+                            >
+                              <img src={href} alt={`Doc ${d.id}`} className="h-8 w-12 object-cover" />
+                            </button>
+                          ) : null}
+
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              aria-label="Preview document"
+                              title="Preview document"
+                              onClick={() => openPreview(d)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <a
+                              className="link underline text-xs"
+                              href={href}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Open in new tab
+                            </a>
+                          </div>
                         </div>
                       ) : (
                         <span className="text-muted-foreground">—</span>
@@ -660,7 +694,11 @@ export function AdminDriversPage() {
             </div>
           ) : previewState.objectUrl ? (
             <div className="max-h-[70vh] overflow-auto rounded-lg border border-border bg-black">
-              <img src={previewState.objectUrl} alt="Driver document" className="h-full w-full object-contain" />
+              <PhotoProvider>
+                <PhotoView src={previewState.objectUrl}>
+                  <img src={previewState.objectUrl} alt="Driver document" className="h-full w-full object-contain" />
+                </PhotoView>
+              </PhotoProvider>
             </div>
           ) : (
             <div className="flex h-64 items-center justify-center rounded-lg border border-border text-sm text-muted-foreground">
