@@ -27,14 +27,48 @@ function StatusPill({ active, children, onClick }: { active: boolean; children: 
   );
 }
 
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000/api";
+const PUBLIC_BASE = String(API_BASE).replace(/\/api\/?$/, "");
+const API_BASE_URL = (() => {
+  try {
+    return new URL(PUBLIC_BASE);
+  } catch {
+    return null;
+  }
+})();
+
+const shouldProxyDocuments = Boolean((import.meta as any).env?.DEV && typeof window !== "undefined" && API_BASE_URL && window.location.origin !== API_BASE_URL.origin);
+
 function resolveUrl(u?: string | null): string | null {
   if (!u) return null;
-  const s = String(u);
-  if (/^https?:\/\//i.test(s) || s.startsWith("data:")) return s;
-  const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000/api";
-  const PUBLIC_BASE = String(API_BASE).replace(/\/api\/?$/, "");
-  if (s.startsWith("/")) return `${PUBLIC_BASE}${s}`;
-  return `${PUBLIC_BASE}/${s}`;
+  const trimmed = String(u).trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("data:")) return trimmed;
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const provided = new URL(trimmed);
+      const base = API_BASE_URL;
+      if (base && provided.origin === base.origin) {
+        if (shouldProxyDocuments) return `${provided.pathname}${provided.search}` || "/";
+        return trimmed;
+      }
+      return trimmed;
+    } catch {
+      return trimmed;
+    }
+  }
+
+  const normalized = (() => {
+    if (trimmed.startsWith("/")) return trimmed;
+    if (trimmed.startsWith("storage/") || trimmed.startsWith("public/")) return `/${trimmed}`;
+    return `/storage/${trimmed.replace(/^\/+/, "")}`;
+  })();
+
+  if (shouldProxyDocuments) return normalized;
+
+  const base = PUBLIC_BASE.replace(/\/$/, "");
+  return `${base}${normalized}`;
 }
 
 function isImageUrl(u?: string | null): boolean {
@@ -44,6 +78,7 @@ function isImageUrl(u?: string | null): boolean {
 }
 
 function ReceiptPreview({ url, id }: { url?: string | null; id?: any }) {
+  const { token } = useAuth();
   const [loading, setLoading] = React.useState(false);
   const [blobUrl, setBlobUrl] = React.useState<string | null>(null);
   const hiddenBtnRef = React.useRef<HTMLButtonElement | null>(null);
@@ -82,13 +117,15 @@ function ReceiptPreview({ url, id }: { url?: string | null; id?: any }) {
 
     try {
       setLoading(true);
-      const res = await fetch(resolved);
+      const res = await fetch(resolved, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        credentials: "include",
+      });
       if (!res.ok) throw new Error(`Failed to fetch (${res.status})`);
       const blob = await res.blob();
       if (!blob.type.startsWith("image/")) {
         const obj = URL.createObjectURL(blob);
         const w = window.open(obj, "_blank", "noopener,noreferrer");
-        // revoke after a short delay
         setTimeout(() => URL.revokeObjectURL(obj), 5000);
         if (!w) throw new Error("Popup blocked");
         return;
@@ -105,7 +142,11 @@ function ReceiptPreview({ url, id }: { url?: string | null; id?: any }) {
 
   React.useEffect(() => {
     if (blobUrl && hiddenBtnRef.current) {
-      hiddenBtnRef.current.click();
+      // Wait a tick to ensure PhotoView/PhotoProvider mount handlers attach
+      const id = window.setTimeout(() => {
+        hiddenBtnRef.current?.click();
+      }, 50);
+      return () => window.clearTimeout(id);
     }
   }, [blobUrl]);
 
