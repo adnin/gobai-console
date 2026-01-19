@@ -1,2 +1,13 @@
-# NEXT_UP
-Add pagination controls to the admin users search page so admins can navigate result pages and see deterministic totals.
+impement approve and reject in driver docs
+Driver documents — Adnin Onofre
+Close
+Approve documents first (if required) then approve the application.
+Type Status Link Actions
+vehicle_or submitted —
+No actions
+vehicle_cr submitted —
+No actions
+drivers_license submitted —
+No actions
+police_clearance submitted —
+No actions

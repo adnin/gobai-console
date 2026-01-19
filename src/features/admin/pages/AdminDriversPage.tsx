@@ -1,3 +1,127 @@
+// --- Receipt/document preview helpers (copied from AdminCashinsPage) ---
+
+function resolveUrl(u?: string | null): string | null {
+  if (!u) return null;
+  const trimmed = String(u).trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("data:")) return trimmed;
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const provided = new URL(trimmed);
+      const base = API_BASE_URL;
+      if (base && provided.origin === base.origin) {
+        if (shouldProxyDocuments) return `${provided.pathname}${provided.search}` || "/";
+        return trimmed;
+      }
+      return trimmed;
+    } catch {
+      return trimmed;
+    }
+  }
+
+  const normalized = (() => {
+    if (trimmed.startsWith("/")) return trimmed;
+    if (trimmed.startsWith("storage/") || trimmed.startsWith("public/")) return `/${trimmed}`;
+    return `/storage/${trimmed.replace(/^\/+/,'')}`;
+  })();
+
+  if (shouldProxyDocuments) return normalized;
+
+  const base = PUBLIC_BASE.replace(/\/$/, "");
+  return `${base}${normalized}`;
+}
+
+
+function ReceiptPreview({ url, id }: { url?: string | null; id?: any }) {
+  const { token } = useAuth();
+  const [loading, setLoading] = React.useState(false);
+  const [blobUrl, setBlobUrl] = React.useState<string | null>(null);
+  const hiddenBtnRef = React.useRef<HTMLButtonElement | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [blobUrl]);
+
+  const resolved = resolveUrl(url ?? undefined);
+
+  if (!url) return <div className="text-xs text-muted-foreground">—</div>;
+
+  if (isImageUrl(resolved)) {
+    return (
+      <PhotoProvider>
+        <PhotoView src={resolved!}>
+          <button type="button" className="overflow-hidden rounded-md border border-border bg-card p-1" title="Click to inspect">
+            <img src={resolved!} alt={`Document ${id}`} className="h-8 w-12 object-cover" />
+          </button>
+        </PhotoView>
+      </PhotoProvider>
+    );
+  }
+
+  const isStream = typeof resolved === "string" && /\/files\/stream\//.test(resolved);
+
+  async function handleFetchPreview(e: React.MouseEvent) {
+    e.preventDefault();
+    if (!resolved) return;
+    if (!isStream) {
+      window.open(resolved, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await fetch(resolved, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`Failed to fetch (${res.status})`);
+      const blob = await res.blob();
+      if (!blob.type.startsWith("image/")) {
+        const obj = URL.createObjectURL(blob);
+        const w = window.open(obj, "_blank", "noopener,noreferrer");
+        setTimeout(() => URL.revokeObjectURL(obj), 5000);
+        if (!w) throw new Error("Popup blocked");
+        return;
+      }
+      const obj = URL.createObjectURL(blob);
+      setBlobUrl(obj);
+    } catch (err: any) {
+      alert(err?.message ?? "Failed to load document");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  React.useEffect(() => {
+    if (blobUrl && hiddenBtnRef.current) {
+      const id = window.setTimeout(() => {
+        hiddenBtnRef.current?.click();
+      }, 50);
+      return () => window.clearTimeout(id);
+    }
+  }, [blobUrl]);
+
+  return (
+    <div className="flex items-center gap-2">
+      <button type="button" onClick={handleFetchPreview} className="text-xs text-muted-foreground underline" disabled={loading}>
+        {loading ? "Loading…" : "Open"}
+      </button>
+
+      {blobUrl ? (
+        <PhotoProvider>
+          <PhotoView src={blobUrl}>
+            <button ref={hiddenBtnRef} style={{ display: "none" }}>
+              preview
+            </button>
+          </PhotoView>
+        </PhotoProvider>
+      ) : null}
+    </div>
+  );
+}
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,7 +132,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Check, Eye, FileText, UserCheck, X } from "lucide-react";
+import { Check, FileText, UserCheck, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/ui/toast/ToastProvider";
@@ -130,7 +254,9 @@ function resolveDocumentUrl(path?: string | null): string | null {
 }
 
 function getDriverDocumentPath(doc: any): string | null {
+  // Prefer signed_url if present for secure direct access
   return (
+    doc?.signed_url ??
     doc?.file_url ??
     doc?.url ??
     doc?.path ??
@@ -248,19 +374,7 @@ export function AdminDriversPage() {
     setPreviewState({ isOpen: false, doc: null, objectUrl: null, loading: false, error: null });
   }, []);
 
-  const openPreview = (doc: any) => {
-    const path = resolveDocumentUrl(getDriverDocumentPath(doc));
-    if (!path) {
-      toast.warn("Document file unavailable for preview.");
-      return;
-    }
-    previewAbortRef.current?.abort();
-    if (previewObjectUrlRef.current) {
-      URL.revokeObjectURL(previewObjectUrlRef.current);
-      previewObjectUrlRef.current = null;
-    }
-    setPreviewState({ isOpen: true, doc, objectUrl: null, loading: true, error: null });
-  };
+// openPreview removed (unused)
 
   React.useEffect(() => {
     if (!previewState.isOpen || !previewState.doc) return;
@@ -570,7 +684,7 @@ export function AdminDriversPage() {
                 const st = String(
                   d?.status ?? d?.approval_status ?? "pending"
                 ).toLowerCase();
-                const href = resolveDocumentUrl(getDriverDocumentPath(d));
+                const docUrl = getDriverDocumentPath(d);
                 return (
                   <tr key={d.id} className="border-t">
                     <td className="px-3 py-2 font-medium">
@@ -578,46 +692,11 @@ export function AdminDriversPage() {
                     </td>
                     <td className="px-3 py-2">{st}</td>
                     <td className="px-3 py-2 hidden sm:table-cell">
-                      {href ? (
-                        <div className="flex items-center gap-2">
-                          {isImageUrl(href) ? (
-                            <button
-                              type="button"
-                              className="overflow-hidden rounded-md border border-border bg-card p-1"
-                              title="Click to inspect"
-                              onClick={() => openPreview(d)}
-                            >
-                              <img src={href} alt={`Doc ${d.id}`} className="h-8 w-12 object-cover" />
-                            </button>
-                          ) : null}
-
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              aria-label="Preview document"
-                              title="Preview document"
-                              onClick={() => openPreview(d)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <a
-                              className="link underline text-xs"
-                              href={href}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Open in new tab
-                            </a>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                      <ReceiptPreview url={docUrl} id={d.id} />
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-2">
-                        {st === "pending" ? (
+                        {(st === "pending" || st === "submitted") ? (
                           <>
                             <Button
                               size="icon"
