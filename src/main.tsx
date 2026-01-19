@@ -11,8 +11,8 @@ const runtimeConfig = {
   socketUrl: viteEnv.VITE_SOCKET_URL,
 };
 
-const expectedProdApiBaseUrl = "https://api.gobai.app/api/v1";
-const expectedProdSocketUrl = "https://api.gobai.app";
+const expectedProdApiBaseUrl = "https://staging-api.gobai.app/api/v1";
+const expectedProdSocketUrl = "https://staging-api.gobai.app";
 const isProdBuild = Boolean(viteEnv.PROD);
 const resolvedMode = isProdBuild ? "production" : "development";
 

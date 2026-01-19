@@ -11,7 +11,7 @@
             "description": "Sandbox"
         },
         {
-            "url": "https://api.gobai.app",
+            "url": "https://staging-api.gobai.app",
             "description": "Production"
         }
     ],
