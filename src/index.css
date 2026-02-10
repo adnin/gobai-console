@@ -4,69 +4,69 @@
 /* --- shadcn/ui style tokens (Tailwind v4) --- */
 /* Note: This is a starter theme. You can swap values via tweakcn or shadcn CLI later. */
 :root {
-  --background: #f7f7f8;
-  --foreground: #0f172a;
+  --background: #f3f6fa;
+  --foreground: #1f2937;
 
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #1f2937;
 
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --popover-foreground: #1f2937;
 
   --primary: #10a37f;
-  --primary-foreground: #f7f7f8;
+  --primary-foreground: #f8fbff;
 
-  --secondary: #eef2f5;
-  --secondary-foreground: #0f172a;
+  --secondary: #e7edf7;
+  --secondary-foreground: #1e3a5f;
 
-  --muted: #f1f5f9;
-  --muted-foreground: #6b7280;
+  --muted: #edf2f8;
+  --muted-foreground: #5f6b7a;
 
-  --accent: #e5e7eb;
-  --accent-foreground: #0f172a;
+  --accent: #dce8f8;
+  --accent-foreground: #1f2937;
 
   --destructive: #ef4444;
-  --destructive-foreground: #f7f7f8;
+  --destructive-foreground: #f8fbff;
 
-  --border: #e5e7eb;
-  --input: #e5e7eb;
+  --border: #d5dde8;
+  --input: #d5dde8;
   --ring: #10a37f;
 
-  --radius: 0.9rem;
+  --radius: 1rem;
 
   /* App-specific semantic tokens */
-  --success: #16a34a;
+  --success: #1e8e3e;
   --warning: #f59e0b;
   --danger: #ef4444;
 }
 
 .dark {
-  --background: #202123;
-  --foreground: #ececf1;
+  --background: #1e2633;
+  --foreground: #e8edf4;
 
-  --card: #2a2b32;
-  --card-foreground: #ececf1;
+  --card: #263246;
+  --card-foreground: #e8edf4;
 
-  --popover: #2a2b32;
-  --popover-foreground: #ececf1;
+  --popover: #263246;
+  --popover-foreground: #e8edf4;
 
   --primary: #19c37d;
-  --primary-foreground: #0f1117;
+  --primary-foreground: #0f172a;
 
-  --secondary: #343541;
-  --secondary-foreground: #ececf1;
+  --secondary: #324259;
+  --secondary-foreground: #e8edf4;
 
-  --muted: #2f3036;
-  --muted-foreground: #9ca3af;
+  --muted: #2d3a4f;
+  --muted-foreground: #b3bfce;
 
-  --accent: #343541;
-  --accent-foreground: #ececf1;
+  --accent: #3a4b64;
+  --accent-foreground: #e8edf4;
 
   --destructive: #ef4444;
-  --destructive-foreground: #0f1117;
+  --destructive-foreground: #f8fbff;
 
-  --border: #3f4147;
-  --input: #3f4147;
+  --border: #445977;
+  --input: #445977;
   --ring: #19c37d;
 }
 
@@ -102,8 +102,11 @@ html, body, #root {
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(1100px 420px at 100% -80px, color-mix(in oklab, var(--primary) 13%, transparent), transparent),
+    var(--background);
   color: var(--foreground);
+  font-family: "Manrope", "Nunito Sans", "Segoe UI", sans-serif;
 }
 
 /* nice default selection */

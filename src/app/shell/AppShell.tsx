@@ -6,22 +6,23 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { hasAnyRole, type Role } from "@/lib/rbac";
 import {
-  LayoutGrid,
-  LogOut,
-  Shield,
-  ShieldCheck,
-  Store,
-  Truck,
-  Headset,
-  Wallet,
-  CreditCard,
-  Settings,
   Activity,
   AlertTriangle,
-  Sparkles,
-  Users,
-  Handshake,
   BarChart3,
+  BellDot,
+  CreditCard,
+  Handshake,
+  Headset,
+  LayoutGrid,
+  LogOut,
+  Settings,
+  Shield,
+  ShieldCheck,
+  Sparkles,
+  Store,
+  Truck,
+  Users,
+  Wallet,
 } from "lucide-react";
 
 type NavItem = {
@@ -36,7 +37,12 @@ const NAV: NavItem[] = [
   { label: "Ops KPI", to: "/ops/kpi", icon: <BarChart3 className="size-4" />, roles: ["ops", "admin", "system"] },
   { label: "Ops Diagnostics", to: "/ops/explain-stuck", icon: <Activity className="size-4" />, roles: ["ops", "admin", "system"] },
   { label: "Stuck Orders", to: "/ops/orders/stuck", icon: <AlertTriangle className="size-4" />, roles: ["ops", "admin", "system"] },
-  { label: "Partner Dispatch", to: "/partner/dispatch", icon: <Truck className="size-4" />, roles: ["partner_ops", "partner", "fleet_admin", "dispatcher", "admin", "system"] },
+  {
+    label: "Partner Dispatch",
+    to: "/partner/dispatch",
+    icon: <Truck className="size-4" />,
+    roles: ["partner_ops", "partner", "fleet_admin", "dispatcher", "admin", "system"],
+  },
   { label: "Usage", to: "/partner/usage", icon: <BarChart3 className="size-4" />, roles: ["fleet_admin", "finance_lite", "admin", "system"] },
   { label: "Partner", to: "/partner", icon: <Handshake className="size-4" />, roles: ["partner_ops", "partner", "admin", "system"] },
   { label: "Driver Wallet", to: "/driver/wallet", icon: <Wallet className="size-4" />, roles: ["driver", "admin", "system"] },
@@ -60,7 +66,7 @@ export function AppShell() {
   const location = useLocation();
 
   const computeHideNav = React.useCallback(() => {
-    // Dispatch consoles: full screen hides the left nav (default ON)
+    // Dispatch consoles: full screen hides the left nav (default ON).
     if (location.pathname.startsWith("/ops/dispatch") || location.pathname.startsWith("/partner/dispatch")) {
       try {
         const v = window.localStorage.getItem("ops.command.fullScreen");
@@ -70,7 +76,7 @@ export function AppShell() {
       }
     }
 
-    // Merchant board: allow the same “full screen / collapse nav” behavior (default OFF)
+    // Merchant board: same full-screen behavior (default OFF).
     if (location.pathname.startsWith("/merchant")) {
       try {
         const v = window.localStorage.getItem("merchant.command.fullScreen");
@@ -88,14 +94,12 @@ export function AppShell() {
   React.useEffect(() => {
     const refresh = () => setHideNav(computeHideNav());
     refresh();
-    // Custom events fired by UI toggles
-    window.addEventListener("ops.command.fullScreen", refresh as any);
-    window.addEventListener("merchant.command.fullScreen", refresh as any);
-    // Cross-tab updates
+    window.addEventListener("ops.command.fullScreen", refresh as EventListener);
+    window.addEventListener("merchant.command.fullScreen", refresh as EventListener);
     window.addEventListener("storage", refresh);
     return () => {
-      window.removeEventListener("ops.command.fullScreen", refresh as any);
-      window.removeEventListener("merchant.command.fullScreen", refresh as any);
+      window.removeEventListener("ops.command.fullScreen", refresh as EventListener);
+      window.removeEventListener("merchant.command.fullScreen", refresh as EventListener);
       window.removeEventListener("storage", refresh);
     };
   }, [computeHideNav]);
@@ -105,86 +109,125 @@ export function AppShell() {
   }, [viewer]);
 
   const showOnboardingCallout = !!viewer && items.length === 0;
+  const viewerName = viewer?.name?.trim() || "Operator";
+  const viewerInitial = viewerName.charAt(0).toUpperCase() || "O";
 
   return (
-    <div className="h-full bg-background">
-      <div className="flex h-full">
-        <aside
-          className={cn(
-            "hidden w-64 shrink-0 border-r border-border bg-card md:flex md:flex-col",
-            hideNav && "md:hidden"
-          )}
-        >
-          <div className="flex items-center gap-2 border-b border-border px-4 py-4">
-            <LayoutGrid className="size-5" />
-            <div className="min-w-0">
-              <div className="text-sm font-semibold leading-tight">GOBAI Console</div>
-              <div className="text-xs text-muted-foreground leading-tight">Role-ready ops hub</div>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-auto p-2">
-            {items.length > 0 ? (
-              <nav className="space-y-1">
-                {items.map((it) => (
-                  <NavLink
-                    key={it.to}
-                    to={it.to}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent",
-                        isActive ? "bg-accent font-medium" : "text-muted-foreground"
-                      )
-                    }
-                  >
-                    {it.icon}
-                    <span className="truncate">{it.label}</span>
-                  </NavLink>
-                ))}
-              </nav>
-            ) : null}
-
-            {showOnboardingCallout ? (
-              <div className="mt-3 rounded-lg border border-border bg-background p-3">
-                <div className="flex items-center gap-2">
-                  <Handshake className="size-4 text-muted-foreground" />
-                  <div className="text-sm font-semibold">Become a partner</div>
+    <div className="h-full bg-background text-foreground">
+      <div className="flex h-full min-h-0 flex-col">
+        {!hideNav ? (
+          <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
+            <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                  <LayoutGrid className="size-4" />
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Apply to manage your own drivers and earn commission per completed order.
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold leading-tight">GOBAI Console</div>
+                  <div className="truncate text-xs leading-tight text-muted-foreground">Control center</div>
                 </div>
-                <a
-                  href="/partner/apply"
-                  className={cn(buttonVariants({ variant: "default" }), "mt-3 w-full")}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="hidden items-center gap-2 rounded-full bg-[#d7f3eb] px-4 py-2 text-xs font-semibold text-[#16614f] md:inline-flex"
                 >
-                  Apply as Partner
-                </a>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="border-t border-border p-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-semibold">{viewer?.name ?? "—"}</div>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {(viewer?.roles ?? []).map((r) => (
-                    <Badge key={r} variant="secondary" className="text-[11px]">
-                      {r}
-                    </Badge>
-                  ))}
+                  <BellDot className="size-4" />
+                  Unread notifications
+                </button>
+                <div className="flex items-center gap-2 rounded-2xl border border-border bg-card py-1 pl-1 pr-3 shadow-sm">
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-[#ebf5ec] text-xs font-semibold text-[#2f7d3a]">
+                    {viewerInitial}
+                  </span>
+                  <span className="max-w-[140px] truncate text-sm font-medium">{viewerName}</span>
                 </div>
               </div>
-              <Button variant="outline" size="icon" onClick={() => void logout()} title="Logout">
-                <LogOut className="size-4" />
-              </Button>
             </div>
-          </div>
-        </aside>
+          </header>
+        ) : null}
 
-        <main className="min-w-0 flex-1">
-          <Outlet />
-        </main>
+        <div className="flex min-h-0 flex-1">
+          <aside
+            className={cn(
+              "hidden w-[280px] shrink-0 border-r border-border bg-[#e8edf3] md:flex md:flex-col",
+              hideNav && "md:hidden"
+            )}
+          >
+            <div className="border-b border-border p-3">
+              <button
+                type="button"
+                className="flex h-11 w-full items-center rounded-full border border-border bg-[#eef2f6] px-4 text-left text-sm text-[#374151]"
+              >
+                All modules
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-3">
+              {items.length > 0 ? (
+                <nav className="space-y-1.5">
+                  {items.map((it) => (
+                    <NavLink
+                      key={it.to}
+                      to={it.to}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex items-center gap-2 rounded-xl border border-transparent px-3 py-2.5 text-sm transition-colors",
+                          isActive
+                            ? "border-[#b9e4d7] bg-[#dcf3ea] font-medium text-[#16614f]"
+                            : "text-[#4b5563] hover:bg-white/80"
+                        )
+                      }
+                    >
+                      {it.icon}
+                      <span className="truncate">{it.label}</span>
+                    </NavLink>
+                  ))}
+                </nav>
+              ) : null}
+
+              {showOnboardingCallout ? (
+                <div className="mt-3 rounded-xl border border-[#b9e4d7] bg-[#dcf3ea] p-3">
+                  <div className="flex items-center gap-2">
+                    <Handshake className="size-4 text-[#16614f]" />
+                    <div className="text-sm font-semibold">Become a partner</div>
+                  </div>
+                  <div className="mt-1 text-xs text-[#435365]">
+                    Apply to manage your own drivers and earn commission per completed order.
+                  </div>
+                  <a
+                    href="/partner/apply"
+                    className={cn(buttonVariants({ variant: "default" }), "mt-3 w-full")}
+                  >
+                    Apply as Partner
+                  </a>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="border-t border-border bg-card/70 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold">{viewer?.name ?? "-"}</div>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {(viewer?.roles ?? []).map((r) => (
+                      <Badge key={r} variant="secondary" className="text-[11px]">
+                        {r}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <Button variant="outline" size="icon" onClick={() => void logout()} title="Logout">
+                  <LogOut className="size-4" />
+                </Button>
+              </div>
+            </div>
+          </aside>
+
+          <main className="min-w-0 flex-1 overflow-auto">
+            <Outlet />
+          </main>
+        </div>
       </div>
     </div>
   );
