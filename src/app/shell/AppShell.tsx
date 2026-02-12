@@ -10,6 +10,8 @@ import {
   AlertTriangle,
   BarChart3,
   BellDot,
+  ChevronsLeft,
+  ChevronsRight,
   CreditCard,
   Database,
   Handshake,
@@ -32,6 +34,8 @@ type NavItem = {
   icon: React.ReactNode;
   roles: Role[];
 };
+
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "console.sidebar.collapsed";
 
 const NAV: NavItem[] = [
   { label: "Ops", to: "/ops", icon: <Truck className="size-4" />, roles: ["ops", "admin", "system"] },
@@ -92,6 +96,13 @@ export function AppShell() {
   }, [location.pathname]);
 
   const [hideNav, setHideNav] = React.useState<boolean>(() => computeHideNav());
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
 
   React.useEffect(() => {
     const refresh = () => setHideNav(computeHideNav());
@@ -105,6 +116,14 @@ export function AppShell() {
       window.removeEventListener("storage", refresh);
     };
   }, [computeHideNav]);
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, isSidebarCollapsed ? "1" : "0");
+    } catch {
+      // ignore write failures (private mode / blocked storage)
+    }
+  }, [isSidebarCollapsed]);
 
   const items = React.useMemo(() => {
     return NAV.filter((x) => hasAnyRole(viewer, x.roles));
@@ -128,6 +147,17 @@ export function AppShell() {
                   <div className="truncate text-sm font-semibold leading-tight">GOBAI Console</div>
                   <div className="truncate text-xs leading-tight text-muted-foreground">Control center</div>
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="hidden text-muted-foreground md:inline-flex"
+                  onClick={() => setIsSidebarCollapsed((value) => !value)}
+                  title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                  aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                >
+                  {isSidebarCollapsed ? <ChevronsRight className="size-4" /> : <ChevronsLeft className="size-4" />}
+                </Button>
               </div>
 
               <div className="flex items-center gap-2">
@@ -152,16 +182,21 @@ export function AppShell() {
         <div className="flex min-h-0 flex-1">
           <aside
             className={cn(
-              "hidden w-[280px] shrink-0 border-r border-border bg-[#e8edf3] md:flex md:flex-col",
+              "hidden shrink-0 border-r border-border bg-[#e8edf3] transition-[width] duration-200 md:flex md:flex-col",
+              isSidebarCollapsed ? "w-[84px]" : "w-[280px]",
               hideNav && "md:hidden"
             )}
           >
             <div className="border-b border-border p-3">
               <button
                 type="button"
-                className="flex h-11 w-full items-center rounded-full border border-border bg-[#eef2f6] px-4 text-left text-sm text-[#374151]"
+                className={cn(
+                  "flex h-11 w-full items-center rounded-full border border-border bg-[#eef2f6] text-sm text-[#374151]",
+                  isSidebarCollapsed ? "justify-center px-0" : "px-4 text-left"
+                )}
+                title="All modules"
               >
-                All modules
+                {isSidebarCollapsed ? <LayoutGrid className="size-4" /> : "All modules"}
               </button>
             </div>
 
@@ -172,9 +207,11 @@ export function AppShell() {
                     <NavLink
                       key={it.to}
                       to={it.to}
+                      title={it.label}
                       className={({ isActive }) =>
                         cn(
-                          "flex items-center gap-2 rounded-xl border border-transparent px-3 py-2.5 text-sm transition-colors",
+                          "flex items-center rounded-xl border border-transparent py-2.5 text-sm transition-colors",
+                          isSidebarCollapsed ? "justify-center px-2" : "gap-2 px-3",
                           isActive
                             ? "border-[#b9e4d7] bg-[#dcf3ea] font-medium text-[#16614f]"
                             : "text-[#4b5563] hover:bg-white/80"
@@ -182,7 +219,7 @@ export function AppShell() {
                       }
                     >
                       {it.icon}
-                      <span className="truncate">{it.label}</span>
+                      {!isSidebarCollapsed ? <span className="truncate">{it.label}</span> : null}
                     </NavLink>
                   ))}
                 </nav>
@@ -208,18 +245,26 @@ export function AppShell() {
             </div>
 
             <div className="border-t border-border bg-card/70 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold">{viewer?.name ?? "-"}</div>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {(viewer?.roles ?? []).map((r) => (
-                      <Badge key={r} variant="secondary" className="text-[11px]">
-                        {r}
-                      </Badge>
-                    ))}
-                  </div>
+              <div className={cn("flex gap-2", isSidebarCollapsed ? "flex-col items-center" : "items-center justify-between")}>
+                <div className={cn("min-w-0", isSidebarCollapsed && "w-full")}>
+                  {!isSidebarCollapsed ? <div className="truncate text-sm font-semibold">{viewer?.name ?? "-"}</div> : null}
+                  {!isSidebarCollapsed ? (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {(viewer?.roles ?? []).map((r) => (
+                        <Badge key={r} variant="secondary" className="text-[11px]">
+                          {r}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex justify-center">
+                      <span className="flex size-7 items-center justify-center rounded-lg bg-[#ebf5ec] text-xs font-semibold text-[#2f7d3a]">
+                        {viewerInitial}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <Button variant="outline" size="icon" onClick={() => void logout()} title="Logout">
+                <Button variant="outline" size="icon" onClick={() => void logout()} title="Logout" aria-label="Logout">
                   <LogOut className="size-4" />
                 </Button>
               </div>
