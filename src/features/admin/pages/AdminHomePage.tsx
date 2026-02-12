@@ -127,6 +127,12 @@ export function AdminHomePage() {
       to: "/admin/promotions",
       badge: undefined,
     },
+    {
+      title: "Places Import",
+      desc: "Upload JSON pins and upsert places by name.",
+      to: "/admin/places/import",
+      badge: undefined,
+    },
   ];
 
   return (

@@ -141,8 +141,12 @@ import {
   adminApproveDriverApplication,
   adminApproveDriverDocument,
   adminDriverApplications,
+  adminDriverServiceSettings,
   adminRejectDriverApplication,
   adminRejectDriverDocument,
+  adminUpdateDriverServiceSettings,
+  type AdminDriverServiceKey,
+  type AdminDriverServiceSettings,
 } from "@/features/admin/api/adminApi";
 
 import { PhotoProvider, PhotoView } from "react-photo-view";
@@ -273,6 +277,18 @@ function isImageUrl(u?: string | null): boolean {
   return [".png", ".jpg", ".jpeg", ".webp", ".gif"].some((ext) => s.endsWith(ext));
 }
 
+const DRIVER_SERVICE_ITEMS: Array<{ key: AdminDriverServiceKey; label: string; hint: string }> = [
+  { key: "transport", label: "Transport", hint: "Ride and transport deliveries" },
+  { key: "food", label: "Food", hint: "Store/food flow orders" },
+  { key: "parcel", label: "Parcel", hint: "Parcel deliveries" },
+];
+
+const DRIVER_SERVICE_LABELS: Record<AdminDriverServiceKey, string> = {
+  transport: "Transport",
+  food: "Food",
+  parcel: "Parcel",
+};
+
 export function AdminDriversPage() {
   const { token } = useAuth();
   const qc = useQueryClient();
@@ -283,6 +299,11 @@ export function AdminDriversPage() {
   >("pending");
   const [q, setQ] = React.useState<string>("");
   const [selected, setSelected] = React.useState<any | null>(null);
+  const selectedDriverUserId = React.useMemo(() => {
+    const raw = selected?.user_id ?? selected?.user?.id;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [selected]);
   const previewAbortRef = React.useRef<AbortController | null>(null);
   const previewObjectUrlRef = React.useRef<string | null>(null);
   const [previewState, setPreviewState] = React.useState<{
@@ -298,6 +319,14 @@ export function AdminDriversPage() {
     queryFn: async () =>
       adminDriverApplications(String(token), { status, page: 1, per_page: 50 }),
     enabled: !!token,
+    refetchOnWindowFocus: false,
+  });
+
+  const driverServicesQ = useQuery({
+    queryKey: ["admin", "drivers", "services", selectedDriverUserId],
+    queryFn: async () =>
+      adminDriverServiceSettings(String(token), Number(selectedDriverUserId)),
+    enabled: !!token && !!selected && !!selectedDriverUserId,
     refetchOnWindowFocus: false,
   });
 
@@ -341,6 +370,29 @@ export function AdminDriversPage() {
     },
   });
 
+  const updateServiceM = useMutation({
+    mutationFn: async ({
+      driverUserId,
+      services,
+    }: {
+      driverUserId: number;
+      services: Partial<AdminDriverServiceSettings>;
+    }) => adminUpdateDriverServiceSettings(String(token), driverUserId, services),
+    onSuccess: async (payload, variables) => {
+      qc.setQueryData(
+        ["admin", "drivers", "services", variables.driverUserId],
+        payload
+      );
+      toast.ok("Driver service access updated.");
+      await qc.invalidateQueries({
+        queryKey: ["admin", "drivers", "applications"],
+      });
+    },
+    onError: (err) => {
+      toast.err(getErrorMessage(err, "Unable to update driver service access"));
+    },
+  });
+
   const paginator = (listQ.data as any)?.data; // Laravel paginator
   const rows: any[] = Array.isArray(paginator?.data)
     ? paginator.data
@@ -362,7 +414,19 @@ export function AdminDriversPage() {
     approveAppM.isPending ||
     rejectAppM.isPending ||
     approveDocM.isPending ||
-    rejectDocM.isPending;
+    rejectDocM.isPending ||
+    updateServiceM.isPending;
+
+  const servicePayload = (driverServicesQ.data as any)?.data as
+    | {
+        services?: AdminDriverServiceSettings;
+        enabled_order_flows?: string[];
+      }
+    | undefined;
+  const serviceSettings = servicePayload?.services;
+  const enabledFlows = Array.isArray(servicePayload?.enabled_order_flows)
+    ? servicePayload?.enabled_order_flows
+    : [];
 
   const closePreview = React.useCallback(() => {
     previewAbortRef.current?.abort();
@@ -373,6 +437,27 @@ export function AdminDriversPage() {
     }
     setPreviewState({ isOpen: false, doc: null, objectUrl: null, loading: false, error: null });
   }, []);
+
+  const handleServiceToggle = React.useCallback(
+    (service: AdminDriverServiceKey, enabled: boolean) => {
+      if (!selectedDriverUserId) return;
+
+      const label = DRIVER_SERVICE_LABELS[service];
+      const confirmed = window.confirm(
+        enabled
+          ? `Enable ${label} orders for this driver?`
+          : `Disable ${label} orders for this driver?`
+      );
+
+      if (!confirmed) return;
+
+      updateServiceM.mutate({
+        driverUserId: selectedDriverUserId,
+        services: { [service]: enabled },
+      });
+    },
+    [selectedDriverUserId, updateServiceM]
+  );
 
 // openPreview removed (unused)
 
@@ -641,13 +726,17 @@ export function AdminDriversPage() {
             approveAppM.isError ||
             rejectAppM.isError ||
             approveDocM.isError ||
-            rejectDocM.isError) && (
+            rejectDocM.isError ||
+            driverServicesQ.isError ||
+            updateServiceM.isError) && (
             <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
               {(listQ.error as any)?.message ??
                 (approveAppM.error as any)?.message ??
                 (rejectAppM.error as any)?.message ??
                 (approveDocM.error as any)?.message ??
                 (rejectDocM.error as any)?.message ??
+                (driverServicesQ.error as any)?.message ??
+                (updateServiceM.error as any)?.message ??
                 "Request failed"}
             </div>
           )}
@@ -665,6 +754,70 @@ export function AdminDriversPage() {
           <div className="text-sm text-muted-foreground">
             Approve documents first (if required) then approve the application.
           </div>
+          <Separator />
+
+          <div className="rounded-lg border border-border bg-muted/10 p-3">
+            <div className="text-sm font-semibold">Service access</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Admin controls which order types this driver can receive.
+            </div>
+
+            {driverServicesQ.isLoading ? (
+              <div className="mt-3 text-xs text-muted-foreground">Loading service settings...</div>
+            ) : driverServicesQ.isError ? (
+              <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                {(driverServicesQ.error as any)?.message ?? "Failed to load service settings."}
+              </div>
+            ) : serviceSettings ? (
+              <>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  {DRIVER_SERVICE_ITEMS.map((item) => {
+                    const checked = Boolean(serviceSettings[item.key]);
+                    return (
+                      <label
+                        key={item.key}
+                        className="flex items-start gap-2 rounded-md border border-border bg-background/70 px-3 py-2"
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 size-4"
+                          checked={checked}
+                          disabled={updateServiceM.isPending || !selectedDriverUserId}
+                          onChange={(e) =>
+                            handleServiceToggle(item.key, e.target.checked)
+                          }
+                        />
+                        <span>
+                          <span className="block text-sm font-medium">{item.label}</span>
+                          <span className="block text-xs text-muted-foreground">{item.hint}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {enabledFlows.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>Enabled flows:</span>
+                    {enabledFlows.map((flow) => (
+                      <Badge key={flow} variant="secondary">
+                        {flow}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-3 text-xs text-muted-foreground">
+                    No order flows enabled for this driver.
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="mt-3 text-xs text-muted-foreground">
+                Service settings not available.
+              </div>
+            )}
+          </div>
+
           <Separator />
 
           <DataTable dense zebra>

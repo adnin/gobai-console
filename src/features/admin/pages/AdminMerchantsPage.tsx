@@ -10,7 +10,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useAuth } from "@/lib/auth";
 import {
   adminApproveMerchant,
+  adminListPlaces,
+  adminMerchantShow,
   adminMerchantsPending,
+  adminUpdateStoreAssignment,
+  adminUpdateStoreMetaTags,
   adminRejectMerchant,
   adminApproveMerchantDocument,
   adminRejectMerchantDocument,
@@ -181,6 +185,58 @@ function matchesQuery(row: PendingMerchantRow, term: string) {
   return haystacks.some((value) => value.toLowerCase().includes(term));
 }
 
+function normalizeTags(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((tag) => String(tag ?? "").trim())
+    .filter((tag) => tag.length > 0);
+}
+
+function parseTagsInput(input: string): string[] {
+  const tags = input
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0);
+
+  return Array.from(new Set(tags));
+}
+
+function parseOptionalIdInput(input: string): number | null | "invalid" {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  const value = Number(trimmed);
+  if (!Number.isInteger(value) || value <= 0) return "invalid";
+
+  return value;
+}
+
+function formatPlaceOptionLabel(place: any): string {
+  const name = String(place?.name ?? "").trim();
+  const landmark = String(place?.landmark ?? "").trim();
+  const city = String(place?.city ?? "").trim();
+
+  const left = [name, landmark].filter((part) => part.length > 0).join(" - ");
+  if (left && city) return `${left} (${city})`;
+  if (left) return left;
+  if (city) return city;
+
+  return `Place #${String(place?.id ?? "")}`.trim();
+}
+
+function formatServiceZoneOptionLabel(zone: any): string {
+  const name = String(zone?.name ?? "").trim();
+  const municipality = String(zone?.municipality ?? "").trim();
+  const province = String(zone?.province ?? "").trim();
+
+  const location = [municipality, province].filter((part) => part.length > 0).join(", ");
+  if (name && location) return `${name} (${location})`;
+  if (name) return name;
+  if (location) return location;
+
+  return `Zone #${String(zone?.id ?? "")}`.trim();
+}
+
 function isStatusError(err: unknown, status: number) {
   if (!err || typeof err !== "object") return false;
   const maybe = err as { status?: number };
@@ -191,14 +247,16 @@ export function AdminMerchantsPage() {
   const { token } = useAuth();
   const qc = useQueryClient();
   const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected" | "suspended">("all");
 
   const list = useQuery({
-    queryKey: ["admin", "merchants", "pending", q],
+    queryKey: ["admin", "merchants", "pending", q, statusFilter],
     queryFn: async () =>
       adminMerchantsPending(String(token), {
         per_page: 50,
         page: 1,
         q: q.trim() || undefined,
+        status: statusFilter,
       }),
     enabled: !!token,
     refetchOnWindowFocus: false,
@@ -229,10 +287,10 @@ export function AdminMerchantsPage() {
   const busy = approveM.isPending || rejectM.isPending;
   const totalPending = paginator?.total ?? normalizedRows.length;
   const isEmpty = !list.isLoading && filteredRows.length === 0;
-  const emptyTitle = q.trim() ? "No merchants match that search" : "No pending merchants";
+  const emptyTitle = q.trim() ? "No merchants match that search" : "No merchants found";
   const emptyDescription = q.trim()
     ? "Try searching by store name, owner email, or contact number."
-    : "You'll see merchant applications waiting for approval here.";
+    : "Try a different status filter.";
   const unauthorized = list.isError && isStatusError(list.error, 403);
   const showError = !unauthorized && (list.isError || approveM.isError || rejectM.isError);
   const errorMessage =
@@ -270,6 +328,25 @@ export function AdminMerchantsPage() {
   };
 
   const [docModal, setDocModal] = useState<DocModalState>(initialDocModal);
+  const [tagsModal, setTagsModal] = useState<{
+    isOpen: boolean;
+    merchant: PendingMerchantRow | null;
+    selectedStoreId: number | null;
+    tagsInput: string;
+    pickupPlaceIdInput: string;
+    serviceZoneIdInput: string;
+    pickupPlaceSearchInput: string;
+    serviceZoneSearchInput: string;
+  }>({
+    isOpen: false,
+    merchant: null,
+    selectedStoreId: null,
+    tagsInput: "",
+    pickupPlaceIdInput: "",
+    serviceZoneIdInput: "",
+    pickupPlaceSearchInput: "",
+    serviceZoneSearchInput: "",
+  });
 
   const initialPreviewState = {
     isOpen: false,
@@ -336,6 +413,301 @@ export function AdminMerchantsPage() {
   const docError = docModal.action === "approve" ? docApproveM.error : docRejectM.error;
   const docErrorMessage = docError ? getErrorMessage(docError, "Document action failed") : null;
   const docRejectReasonInvalid = docModal.action === "reject" && docModal.reason.trim().length < 3;
+
+  const merchantStoresQ = useQuery({
+    queryKey: ["admin", "merchant", "stores", tagsModal.merchant?.accountId],
+    queryFn: async () => adminMerchantShow(String(token), Number(tagsModal.merchant?.accountId)),
+    enabled: !!token && tagsModal.isOpen && !!tagsModal.merchant?.accountId,
+    refetchOnWindowFocus: false,
+  });
+
+  const placesForTagsQ = useQuery({
+    queryKey: ["admin", "places", "for-store-assignment"],
+    queryFn: async () => adminListPlaces(String(token)),
+    enabled: !!token && tagsModal.isOpen,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const storesForTags = useMemo(() => {
+    const stores = (merchantStoresQ.data as any)?.data?.stores;
+    return Array.isArray(stores) ? stores : [];
+  }, [merchantStoresQ.data]);
+
+  const serviceZonesForTags = useMemo(() => {
+    const zones = (merchantStoresQ.data as any)?.data?.service_zones;
+    return Array.isArray(zones) ? zones : [];
+  }, [merchantStoresQ.data]);
+
+  const placesForTags = useMemo(() => {
+    if (!Array.isArray(placesForTagsQ.data)) return [];
+    return [...placesForTagsQ.data].sort((a: any, b: any) =>
+      String(a?.name ?? "").localeCompare(String(b?.name ?? ""), undefined, { sensitivity: "base" })
+    );
+  }, [placesForTagsQ.data]);
+
+  const selectedStoreForTags = useMemo(
+    () => storesForTags.find((store: any) => Number(store?.id) === Number(tagsModal.selectedStoreId)) ?? null,
+    [storesForTags, tagsModal.selectedStoreId]
+  );
+
+  const selectedPickupPlaceForTags = useMemo(() => {
+    const selectedId = Number(tagsModal.pickupPlaceIdInput);
+    if (!Number.isFinite(selectedId) || selectedId <= 0) return null;
+
+    return placesForTags.find((place: any) => Number(place?.id) === selectedId) ?? null;
+  }, [placesForTags, tagsModal.pickupPlaceIdInput]);
+
+  const selectedServiceZoneForTags = useMemo(() => {
+    const selectedId = Number(tagsModal.serviceZoneIdInput);
+    if (!Number.isFinite(selectedId) || selectedId <= 0) return null;
+
+    return serviceZonesForTags.find((zone: any) => Number(zone?.id) === selectedId) ?? null;
+  }, [serviceZonesForTags, tagsModal.serviceZoneIdInput]);
+
+  const filteredPlacesForTags = useMemo(() => {
+    const term = tagsModal.pickupPlaceSearchInput.trim().toLowerCase();
+    if (!term) return placesForTags;
+
+    return placesForTags.filter((place: any) => {
+      const haystack = [
+        String(place?.name ?? ""),
+        String(place?.landmark ?? ""),
+        String(place?.city ?? ""),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(term);
+    });
+  }, [placesForTags, tagsModal.pickupPlaceSearchInput]);
+
+  const filteredServiceZonesForTags = useMemo(() => {
+    const term = tagsModal.serviceZoneSearchInput.trim().toLowerCase();
+    if (!term) return serviceZonesForTags;
+
+    return serviceZonesForTags.filter((zone: any) => {
+      const haystack = [
+        String(zone?.name ?? ""),
+        String(zone?.slug ?? ""),
+        String(zone?.municipality ?? ""),
+        String(zone?.province ?? ""),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(term);
+    });
+  }, [serviceZonesForTags, tagsModal.serviceZoneSearchInput]);
+
+  const selectedPickupPlaceVisible = useMemo(() => {
+    const selectedId = Number(tagsModal.pickupPlaceIdInput);
+    if (!Number.isFinite(selectedId) || selectedId <= 0) return true;
+
+    return filteredPlacesForTags.some((place: any) => Number(place?.id) === selectedId);
+  }, [filteredPlacesForTags, tagsModal.pickupPlaceIdInput]);
+
+  const selectedServiceZoneVisible = useMemo(() => {
+    const selectedId = Number(tagsModal.serviceZoneIdInput);
+    if (!Number.isFinite(selectedId) || selectedId <= 0) return true;
+
+    return filteredServiceZonesForTags.some((zone: any) => Number(zone?.id) === selectedId);
+  }, [filteredServiceZonesForTags, tagsModal.serviceZoneIdInput]);
+
+  useEffect(() => {
+    if (!tagsModal.isOpen) return;
+    if (!storesForTags.length) return;
+
+    const selectedExists = storesForTags.some((store: any) => Number(store?.id) === Number(tagsModal.selectedStoreId));
+    const nextStore = selectedExists ? selectedStoreForTags : storesForTags[0];
+    if (!nextStore) return;
+
+    const nextStoreId = Number(nextStore?.id);
+    const nextTagsInput = normalizeTags(nextStore?.meta?.tags).join(", ");
+    const nextPickupPlaceIdInput =
+      nextStore?.pickup_place_id !== null && nextStore?.pickup_place_id !== undefined
+        ? String(Number(nextStore.pickup_place_id))
+        : "";
+    const nextServiceZoneIdInput =
+      nextStore?.service_zone_id !== null && nextStore?.service_zone_id !== undefined
+        ? String(Number(nextStore.service_zone_id))
+        : "";
+    const nextPickupPlaceSearchInput = nextStore?.pickup_place_id
+      ? formatPlaceOptionLabel(placesForTags.find((place: any) => Number(place?.id) === Number(nextStore.pickup_place_id)))
+      : "";
+    const nextServiceZoneSearchInput = nextStore?.service_zone_id
+      ? formatServiceZoneOptionLabel(serviceZonesForTags.find((zone: any) => Number(zone?.id) === Number(nextStore.service_zone_id)))
+      : "";
+
+    setTagsModal((prev) => {
+      const shouldUpdateStore = Number(prev.selectedStoreId) !== nextStoreId;
+      const shouldUpdateTags = prev.tagsInput !== nextTagsInput && (!selectedExists || shouldUpdateStore);
+      const shouldUpdatePickupPlace =
+        prev.pickupPlaceIdInput !== nextPickupPlaceIdInput && (!selectedExists || shouldUpdateStore);
+      const shouldUpdateServiceZone =
+        prev.serviceZoneIdInput !== nextServiceZoneIdInput && (!selectedExists || shouldUpdateStore);
+      const shouldUpdatePickupSearch =
+        prev.pickupPlaceSearchInput !== nextPickupPlaceSearchInput && (!selectedExists || shouldUpdateStore);
+      const shouldUpdateServiceZoneSearch =
+        prev.serviceZoneSearchInput !== nextServiceZoneSearchInput && (!selectedExists || shouldUpdateStore);
+
+      if (
+        !shouldUpdateStore &&
+        !shouldUpdateTags &&
+        !shouldUpdatePickupPlace &&
+        !shouldUpdateServiceZone &&
+        !shouldUpdatePickupSearch &&
+        !shouldUpdateServiceZoneSearch
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        selectedStoreId: nextStoreId,
+        tagsInput: shouldUpdateTags ? nextTagsInput : prev.tagsInput,
+        pickupPlaceIdInput: shouldUpdatePickupPlace ? nextPickupPlaceIdInput : prev.pickupPlaceIdInput,
+        serviceZoneIdInput: shouldUpdateServiceZone ? nextServiceZoneIdInput : prev.serviceZoneIdInput,
+        pickupPlaceSearchInput: shouldUpdatePickupSearch ? nextPickupPlaceSearchInput : prev.pickupPlaceSearchInput,
+        serviceZoneSearchInput: shouldUpdateServiceZoneSearch ? nextServiceZoneSearchInput : prev.serviceZoneSearchInput,
+      };
+    });
+  }, [storesForTags, placesForTags, serviceZonesForTags, tagsModal.isOpen, tagsModal.selectedStoreId, selectedStoreForTags]);
+
+  const updateStoreTagsM = useMutation({
+    mutationFn: async ({ storeId, tags }: { storeId: number; tags: string[] }) =>
+      adminUpdateStoreMetaTags(String(token), storeId, tags),
+    onSuccess: async () => {
+      toast.ok("Store tags updated.");
+      await qc.invalidateQueries({ queryKey: ["admin", "merchant", "stores", tagsModal.merchant?.accountId] });
+      await qc.invalidateQueries({ queryKey: ["admin", "merchants", "pending"] });
+    },
+    onError: (err) => {
+      toast.err(getErrorMessage(err, "Failed to update store tags"));
+    },
+  });
+
+  const updateStoreAssignmentM = useMutation({
+    mutationFn: async (payload: { storeId: number; pickup_place_id: number | null; service_zone_id: number | null }) =>
+      adminUpdateStoreAssignment(String(token), payload.storeId, {
+        pickup_place_id: payload.pickup_place_id,
+        service_zone_id: payload.service_zone_id,
+      }),
+    onSuccess: async () => {
+      toast.ok("Store pickup place and service zone updated.");
+      await qc.invalidateQueries({ queryKey: ["admin", "merchant", "stores", tagsModal.merchant?.accountId] });
+      await qc.invalidateQueries({ queryKey: ["admin", "merchants", "pending"] });
+    },
+    onError: (err) => {
+      toast.err(getErrorMessage(err, "Failed to update store assignment"));
+    },
+  });
+
+  const openTagsModal = (row: PendingMerchantRow) => {
+    setTagsModal({
+      isOpen: true,
+      merchant: row,
+      selectedStoreId: null,
+      tagsInput: "",
+      pickupPlaceIdInput: "",
+      serviceZoneIdInput: "",
+      pickupPlaceSearchInput: "",
+      serviceZoneSearchInput: "",
+    });
+  };
+
+  const closeTagsModal = () => {
+    if (updateStoreTagsM.isPending || updateStoreAssignmentM.isPending) return;
+    setTagsModal({
+      isOpen: false,
+      merchant: null,
+      selectedStoreId: null,
+      tagsInput: "",
+      pickupPlaceIdInput: "",
+      serviceZoneIdInput: "",
+      pickupPlaceSearchInput: "",
+      serviceZoneSearchInput: "",
+    });
+  };
+
+  const onSelectStoreForTags = (storeId: number) => {
+    const store = storesForTags.find((item: any) => Number(item?.id) === Number(storeId));
+    const nextTags = normalizeTags(store?.meta?.tags).join(", ");
+    const nextPickupPlaceIdInput =
+      store?.pickup_place_id !== null && store?.pickup_place_id !== undefined
+        ? String(Number(store.pickup_place_id))
+        : "";
+    const nextServiceZoneIdInput =
+      store?.service_zone_id !== null && store?.service_zone_id !== undefined
+        ? String(Number(store.service_zone_id))
+        : "";
+    const nextPickupPlaceSearchInput = store?.pickup_place_id
+      ? formatPlaceOptionLabel(placesForTags.find((place: any) => Number(place?.id) === Number(store.pickup_place_id)))
+      : "";
+    const nextServiceZoneSearchInput = store?.service_zone_id
+      ? formatServiceZoneOptionLabel(serviceZonesForTags.find((zone: any) => Number(zone?.id) === Number(store.service_zone_id)))
+      : "";
+
+    setTagsModal((prev) => ({
+      ...prev,
+      selectedStoreId: storeId,
+      tagsInput: nextTags,
+      pickupPlaceIdInput: nextPickupPlaceIdInput,
+      serviceZoneIdInput: nextServiceZoneIdInput,
+      pickupPlaceSearchInput: nextPickupPlaceSearchInput,
+      serviceZoneSearchInput: nextServiceZoneSearchInput,
+    }));
+  };
+
+  const submitTagsUpdate = () => {
+    const storeId = Number(tagsModal.selectedStoreId);
+    if (!Number.isFinite(storeId) || storeId <= 0) {
+      toast.warn("Select a store first.");
+      return;
+    }
+
+    const tags = parseTagsInput(tagsModal.tagsInput);
+    if (tags.length === 0) {
+      toast.warn("Enter at least one tag.");
+      return;
+    }
+
+    const storeName = String(selectedStoreForTags?.name ?? `Store #${storeId}`);
+    const confirmed = window.confirm(`Update search tags for ${storeName}?`);
+    if (!confirmed) return;
+
+    updateStoreTagsM.mutate({ storeId, tags });
+  };
+
+  const submitStoreAssignmentUpdate = () => {
+    const storeId = Number(tagsModal.selectedStoreId);
+    if (!Number.isFinite(storeId) || storeId <= 0) {
+      toast.warn("Select a store first.");
+      return;
+    }
+
+    const pickupPlaceId = parseOptionalIdInput(tagsModal.pickupPlaceIdInput);
+    if (pickupPlaceId === "invalid") {
+      toast.warn("Invalid pickup place selection.");
+      return;
+    }
+
+    const serviceZoneId = parseOptionalIdInput(tagsModal.serviceZoneIdInput);
+    if (serviceZoneId === "invalid") {
+      toast.warn("Invalid service zone selection.");
+      return;
+    }
+
+    const storeName = String(selectedStoreForTags?.name ?? `Store #${storeId}`);
+    const confirmed = window.confirm(`Update pickup place and service zone for ${storeName}?`);
+    if (!confirmed) return;
+
+    updateStoreAssignmentM.mutate({
+      storeId,
+      pickup_place_id: pickupPlaceId,
+      service_zone_id: serviceZoneId,
+    });
+  };
 
   const openDocModal = (action: "approve" | "reject", row: PendingMerchantRow) => {
     if (!row.dtiDocumentId) {
@@ -447,9 +819,9 @@ export function AdminMerchantsPage() {
     <div className="p-4">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-lg font-semibold">Merchants pending</div>
+          <div className="text-lg font-semibold">Merchants</div>
           <div className="text-sm text-muted-foreground">
-            Review onboarding submissions before stores go live on the marketplace.
+            Review merchant applications and maintain store search tags.
           </div>
         </div>
         <div className="flex gap-2">
@@ -492,6 +864,19 @@ export function AdminMerchantsPage() {
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Search store, owner, or contact"
                 />
+                <select
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  value={statusFilter}
+                  onChange={(e) =>
+                    setStatusFilter(e.target.value as "all" | "pending" | "approved" | "rejected" | "suspended")
+                  }
+                >
+                  <option value="all">All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="suspended">Suspended</option>
+                </select>
                 <Button variant="secondary" onClick={() => setQ("")} disabled={!q.trim()}>
                   Clear
                 </Button>
@@ -515,6 +900,8 @@ export function AdminMerchantsPage() {
                       : filteredRows.map((row) => {
                           const dtiApproved = isDtiApproved(row.dtiDocumentStatus);
                           const dtiStatusLabel = formatStatusLabel(row.dtiDocumentStatus);
+                          const merchantStatus = normalizeStatus(row.status);
+                          const canModerateMerchant = merchantStatus === "pending" || merchantStatus === "";
                           const approvalBlockedReason = dtiApproved
                             ? null
                             : row.dtiCertificatePath
@@ -614,24 +1001,39 @@ export function AdminMerchantsPage() {
                               </td>
                               <td className="px-3 py-2 align-top">
                                 <div className="flex flex-wrap gap-2">
+                                  {canModerateMerchant ? (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleApprove(row)}
+                                        disabled={busy || !dtiApproved}
+                                        title={approvalBlockedReason ?? undefined}
+                                      >
+                                        Approve
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() => handleReject(row)}
+                                        disabled={busy}
+                                      >
+                                        Reject
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <Badge variant="secondary" className="capitalize">
+                                      {merchantStatus || "approved"}
+                                    </Badge>
+                                  )}
                                   <Button
                                     size="sm"
-                                    onClick={() => handleApprove(row)}
-                                    disabled={busy || !dtiApproved}
-                                    title={approvalBlockedReason ?? undefined}
+                                    variant="outline"
+                                    onClick={() => openTagsModal(row)}
                                   >
-                                    Approve
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={() => handleReject(row)}
-                                    disabled={busy}
-                                  >
-                                    Reject
+                                    Tags
                                   </Button>
                                 </div>
-                                {!dtiApproved ? (
+                                {canModerateMerchant && !dtiApproved ? (
                                   <div className="mt-2 text-[11px] text-destructive">{approvalBlockedReason}</div>
                                 ) : null}
                               </td>
@@ -667,7 +1069,7 @@ export function AdminMerchantsPage() {
 
               {!list.isLoading && !isEmpty ? (
                 <div className="px-1 pt-3 text-xs text-muted-foreground">
-                  Showing {filteredRows.length} of {totalPending} pending merchant{totalPending === 1 ? "" : "s"}.
+                  Showing {filteredRows.length} of {totalPending} merchant{totalPending === 1 ? "" : "s"}.
                 </div>
               ) : null}
 
@@ -868,6 +1270,184 @@ export function AdminMerchantsPage() {
             <Button onClick={closePreview}>Close</Button>
           </DialogFooter>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog isOpen={tagsModal.isOpen} onClose={closeTagsModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Store tags and assignment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            {tagsModal.merchant ? (
+              <div className="rounded-xl border border-border bg-muted/10 p-3">
+                <div className="text-xs font-semibold uppercase text-muted-foreground">Merchant</div>
+                <div className="mt-1 font-medium">{tagsModal.merchant.storeName}</div>
+                <div className="text-xs text-muted-foreground">Owner: {tagsModal.merchant.ownerName}</div>
+              </div>
+            ) : null}
+
+            {merchantStoresQ.isLoading ? (
+              <div className="text-muted-foreground">Loading stores...</div>
+            ) : merchantStoresQ.isError ? (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+                {getErrorMessage(merchantStoresQ.error, "Failed to load merchant stores")}
+              </div>
+            ) : storesForTags.length === 0 ? (
+              <div className="text-muted-foreground">No store found for this merchant.</div>
+            ) : (
+              <>
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Store</div>
+                  <select
+                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                    value={tagsModal.selectedStoreId ?? ""}
+                    onChange={(e) => onSelectStoreForTags(Number(e.target.value))}
+                    disabled={updateStoreTagsM.isPending || updateStoreAssignmentM.isPending}
+                  >
+                    {storesForTags.map((store: any) => (
+                      <option key={store.id} value={store.id}>
+                        {store.name ?? `Store #${store.id}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <div className="mb-1 text-xs text-muted-foreground">Pickup place</div>
+                    {placesForTagsQ.isLoading ? (
+                      <div className="flex h-10 items-center rounded-md border border-border bg-muted/20 px-3 text-sm text-muted-foreground">
+                        Loading places...
+                      </div>
+                    ) : placesForTagsQ.isError ? (
+                      <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+                        {getErrorMessage(placesForTagsQ.error, "Failed to load places")}
+                      </div>
+                    ) : (
+                      <>
+                        <Input
+                          value={tagsModal.pickupPlaceSearchInput}
+                          onChange={(e) => setTagsModal((prev) => ({ ...prev, pickupPlaceSearchInput: e.target.value }))}
+                          placeholder="Search pickup place by name..."
+                          disabled={updateStoreTagsM.isPending || updateStoreAssignmentM.isPending}
+                        />
+                        <select
+                          className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                          value={tagsModal.pickupPlaceIdInput}
+                          onChange={(e) => setTagsModal((prev) => ({ ...prev, pickupPlaceIdInput: e.target.value }))}
+                          disabled={updateStoreTagsM.isPending || updateStoreAssignmentM.isPending}
+                        >
+                          <option value="">No pickup place</option>
+                          {!selectedPickupPlaceVisible && selectedPickupPlaceForTags ? (
+                            <option value={selectedPickupPlaceForTags.id}>
+                              {formatPlaceOptionLabel(selectedPickupPlaceForTags)}
+                            </option>
+                          ) : null}
+                          {filteredPlacesForTags.map((place: any) => (
+                            <option key={place.id} value={place.id}>
+                              {formatPlaceOptionLabel(place)}
+                            </option>
+                          ))}
+                          {filteredPlacesForTags.length === 0 && tagsModal.pickupPlaceSearchInput.trim() ? (
+                            <option value="" disabled>
+                              No places match search
+                            </option>
+                          ) : null}
+                        </select>
+                      </>
+                    )}
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Type to search, then select pickup place.
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-1 text-xs text-muted-foreground">Service zone</div>
+                    <>
+                      <Input
+                        value={tagsModal.serviceZoneSearchInput}
+                        onChange={(e) => setTagsModal((prev) => ({ ...prev, serviceZoneSearchInput: e.target.value }))}
+                        placeholder="Search service zone..."
+                        disabled={updateStoreTagsM.isPending || updateStoreAssignmentM.isPending}
+                      />
+                      <select
+                        className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                        value={tagsModal.serviceZoneIdInput}
+                        onChange={(e) => setTagsModal((prev) => ({ ...prev, serviceZoneIdInput: e.target.value }))}
+                        disabled={updateStoreTagsM.isPending || updateStoreAssignmentM.isPending}
+                      >
+                        <option value="">No service zone</option>
+                        {!selectedServiceZoneVisible && selectedServiceZoneForTags ? (
+                          <option value={selectedServiceZoneForTags.id}>
+                            {formatServiceZoneOptionLabel(selectedServiceZoneForTags)}
+                          </option>
+                        ) : null}
+                        {filteredServiceZonesForTags.map((zone: any) => (
+                          <option key={zone.id} value={zone.id}>
+                            {formatServiceZoneOptionLabel(zone)}
+                          </option>
+                        ))}
+                        {serviceZonesForTags.length === 0 ? (
+                          <option value="" disabled>
+                            No service zones available
+                          </option>
+                        ) : filteredServiceZonesForTags.length === 0 && tagsModal.serviceZoneSearchInput.trim() ? (
+                          <option value="" disabled>
+                            No service zones match search
+                          </option>
+                        ) : null}
+                      </select>
+                    </>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Type to search, then select service zone.
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Search tags</div>
+                  <Input
+                    value={tagsModal.tagsInput}
+                    onChange={(e) => setTagsModal((prev) => ({ ...prev, tagsInput: e.target.value }))}
+                    placeholder="food, chicken, juice, drinks, fast food, lechon"
+                    disabled={updateStoreTagsM.isPending || updateStoreAssignmentM.isPending}
+                  />
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Comma-separated tags used by customer search.
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={submitStoreAssignmentUpdate}
+              disabled={
+                updateStoreTagsM.isPending ||
+                updateStoreAssignmentM.isPending ||
+                merchantStoresQ.isLoading ||
+                storesForTags.length === 0
+              }
+            >
+              {updateStoreAssignmentM.isPending ? "Saving..." : "Save pickup and zone"}
+            </Button>
+            <Button
+              onClick={submitTagsUpdate}
+              disabled={
+                updateStoreTagsM.isPending ||
+                updateStoreAssignmentM.isPending ||
+                merchantStoresQ.isLoading ||
+                storesForTags.length === 0
+              }
+            >
+              {updateStoreTagsM.isPending ? "Saving..." : "Save tags"}
+            </Button>
+            <Button variant="secondary" onClick={closeTagsModal} disabled={updateStoreTagsM.isPending || updateStoreAssignmentM.isPending}>
+              Cancel
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

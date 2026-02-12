@@ -117,14 +117,14 @@ export default function ChatThreadModal(props: {
     s.on("event", handle);
     s.on("realtime:event", handle);
     s.on("message", handle);
-    s.onAny((_name: string, p: any) => handle(p));
+    const onAny = (_name: string, p: any) => handle(p);
+    s.onAny(onAny);
 
     return () => {
       s.off("event", handle);
       s.off("realtime:event", handle);
       s.off("message", handle);
-      // can't reliably remove the onAny callback we just created;
-      // it's fine because modal unmount is rare. If you want, move it to a stable fn.
+      s.offAny(onAny);
     };
   }, [open, partnerId, viewerId, orderId, scrollToBottom]);
 

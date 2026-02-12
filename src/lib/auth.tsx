@@ -1,6 +1,7 @@
 import * as React from "react";
 import type { Role, Viewer } from "@/lib/rbac";
 import { apiFetch, envBool, envStr } from "@/lib/http";
+import { resetSocket, syncSocketAuth } from "@/lib/socket";
 
 /**
  * Backend alignment (your api.zip):
@@ -195,6 +196,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setToken(nextToken);
     setViewer(nextViewer);
+
+    if (nextToken) {
+      syncSocketAuth();
+    } else {
+      resetSocket();
+    }
   }, []);
 
   const refreshMe = React.useCallback(async () => {

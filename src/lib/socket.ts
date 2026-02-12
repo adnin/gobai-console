@@ -53,3 +53,47 @@ export function getSocket() {
 
   return socket;
 }
+
+/**
+ * Keep socket auth token in sync after login/token refresh.
+ * Does not create a socket if none exists yet.
+ */
+export function syncSocketAuth() {
+  try {
+    if (!socket) return;
+
+    const token = getAuthToken() || "";
+    (socket as any).auth = { token };
+
+    if (socket.connected && token) {
+      socket.emit("auth", { token });
+    }
+  } catch {
+    // ignore socket sync failures
+  }
+}
+
+/**
+ * Hard reset socket instance (use on logout / account switch).
+ */
+export function resetSocket() {
+  try {
+    if (!socket) return;
+
+    try {
+      socket.removeAllListeners();
+    } catch {
+      // ignore
+    }
+
+    try {
+      socket.disconnect();
+    } catch {
+      // ignore
+    }
+
+    socket = null;
+  } catch {
+    // ignore reset failures
+  }
+}

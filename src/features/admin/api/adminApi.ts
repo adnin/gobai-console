@@ -1,4 +1,10 @@
-import { apiFetch } from "@/lib/http";
+import {
+  ApiError,
+  API_BASE_URL,
+  apiFetch,
+  emitGlobalApiError,
+  getStoredTenantId,
+} from "@/lib/http";
 
 function qs(params: Record<string, any>) {
   const sp = new URLSearchParams();
@@ -22,13 +28,65 @@ function qs(params: Record<string, any>) {
 // -------- Merchants --------
 export async function adminMerchantsPending(
   token: string,
-  params?: { per_page?: number; page?: number; q?: string }
+  params?: { per_page?: number; page?: number; q?: string; status?: "pending" | "approved" | "rejected" | "suspended" | "all" }
 ) {
   return apiFetch(`/admin/merchants/pending${qs(params ?? {})}`, { method: "GET", token });
 }
 
 export async function adminMerchantShow(token: string, merchantUserId: number) {
   return apiFetch(`/admin/merchants/${merchantUserId}`, { method: "GET", token });
+}
+
+export type AdminPlaceOption = {
+  id: number;
+  name?: string | null;
+  landmark?: string | null;
+  city?: string | null;
+};
+
+export async function adminListPlaces(token: string, params?: { search?: string }) {
+  return apiFetch<AdminPlaceOption[]>(`/places${qs(params ?? {})}`, { method: "GET", token });
+}
+
+export type AdminStoreMetaTagsResponse = {
+  message?: string;
+  data: {
+    store_id: number;
+    meta: {
+      tags?: string[];
+    } | null;
+  };
+};
+
+export type AdminStoreAssignmentResponse = {
+  message?: string;
+  data: {
+    store_id: number;
+    pickup_place_id: number | null;
+    pickup_place_name: string | null;
+    service_zone_id: number | null;
+    service_zone_name: string | null;
+  };
+};
+
+export async function adminUpdateStoreMetaTags(token: string, storeId: number, tags: string[]) {
+  return apiFetch<AdminStoreMetaTagsResponse>(`/admin/stores/${storeId}/meta-tags`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify({ tags }),
+  });
+}
+
+export async function adminUpdateStoreAssignment(
+  token: string,
+  storeId: number,
+  payload: { pickup_place_id: number | null; service_zone_id: number | null }
+) {
+  return apiFetch<AdminStoreAssignmentResponse>(`/admin/stores/${storeId}/assignment`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function adminApproveMerchant(token: string, merchantUserId: number, storeId?: number) {
@@ -60,6 +118,35 @@ export async function adminRejectMerchantDocument(token: string, documentId: num
 }
 
 // -------- Drivers --------
+export type AdminDriverServiceKey = "transport" | "food" | "parcel";
+
+export type AdminDriverServiceSettings = Record<AdminDriverServiceKey, boolean>;
+
+export type AdminDriverServicePayload = {
+  driver_id: number;
+  profile_status: string;
+  services: AdminDriverServiceSettings;
+  enabled_order_flows: string[];
+  updated_at: string | null;
+};
+
+export type AdminDriverServiceResponse = {
+  message?: string;
+  data: AdminDriverServicePayload;
+};
+
+export type AdminPlacesImportSummary = {
+  processed: number;
+  created: number;
+  updated: number;
+  skipped: number;
+};
+
+export type AdminPlacesImportResponse = {
+  message?: string;
+  data: AdminPlacesImportSummary;
+};
+
 export async function adminDriverApplications(
   token: string,
   params?: { status?: "pending" | "approved" | "rejected"; page?: number; per_page?: number; q?: string }
@@ -89,6 +176,60 @@ export async function adminRejectDriverDocument(token: string, documentId: numbe
     token,
     body: JSON.stringify({ reason }),
   });
+}
+
+export async function adminDriverServiceSettings(token: string, driverUserId: number) {
+  return apiFetch<AdminDriverServiceResponse>(`/admin/drivers/${driverUserId}/services`, { method: "GET", token });
+}
+
+export async function adminUpdateDriverServiceSettings(
+  token: string,
+  driverUserId: number,
+  services: Partial<AdminDriverServiceSettings>
+) {
+  return apiFetch<AdminDriverServiceResponse>(`/admin/drivers/${driverUserId}/services`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify({ services }),
+  });
+}
+
+export async function adminImportPlacesJson(
+  token: string,
+  file: File
+): Promise<AdminPlacesImportResponse> {
+  const form = new FormData();
+  form.set("file", file);
+
+  const res = await fetch(`${API_BASE_URL}/admin/places/import`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(getStoredTenantId() ? { "X-Tenant-Id": String(getStoredTenantId()) } : {}),
+    },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const ct = res.headers.get("content-type") ?? "";
+    let payload: any = null;
+    try {
+      payload = ct.includes("application/json") ? await res.json() : await res.text();
+    } catch {
+      payload = null;
+    }
+
+    const msg =
+      (payload && typeof payload === "object" && payload.message) ||
+      (typeof payload === "string" && payload) ||
+      `Request failed (${res.status})`;
+    const err = new ApiError(String(msg), res.status, payload);
+    emitGlobalApiError(err);
+    throw err;
+  }
+
+  return (await res.json()) as AdminPlacesImportResponse;
 }
 
 // -------- Wallet cash-in / cash-out --------

@@ -77,6 +77,7 @@ const LEGACY_EVENT_ALIASES: Record<string, string> = {
 
   // driver
   DRIVER_LOCATION: RealtimeEventTypes.DRIVER_LOCATION_UPDATED,
+  JOB_UPDATED: RealtimeEventTypes.ORDER_UPDATED,
   DRIVER_JOB_UPDATED: RealtimeEventTypes.ORDER_UPDATED,
   DRIVER_JOB_STATUS: RealtimeEventTypes.ORDER_UPDATED,
 
