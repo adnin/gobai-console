@@ -133,6 +133,12 @@ export function AdminHomePage() {
       to: "/admin/places/import",
       badge: undefined,
     },
+    {
+      title: "Fare Management",
+      desc: "Update vehicle fare rates and run map-based estimate samples.",
+      to: "/admin/fares",
+      badge: undefined,
+    },
   ];
 
   return (

@@ -48,6 +48,127 @@ export async function adminListPlaces(token: string, params?: { search?: string 
   return apiFetch<AdminPlaceOption[]>(`/places${qs(params ?? {})}`, { method: "GET", token });
 }
 
+export type AdminFareVehicleType = {
+  id: number;
+  name: string;
+  base_fare: number;
+  per_km_rate: number;
+  wait_rate_per_min: number;
+  surcharge: number;
+  transaction_fee: number;
+  transaction_per_km_fee: number;
+  included_km: number;
+  tier1_km_cap: number;
+  tier1_per_km_rate: number;
+  tier2_per_km_rate: number;
+  speed_economy_mult: number;
+  speed_standard_mult: number;
+  speed_express_mult: number;
+  is_active: boolean;
+};
+
+export type AdminFareVehicleTypeListResponse = {
+  data: AdminFareVehicleType[];
+};
+
+export type AdminFareVehicleTypeUpdatePayload = Partial<
+  Pick<
+    AdminFareVehicleType,
+    | "base_fare"
+    | "per_km_rate"
+    | "wait_rate_per_min"
+    | "surcharge"
+    | "transaction_fee"
+    | "transaction_per_km_fee"
+    | "included_km"
+    | "tier1_km_cap"
+    | "tier1_per_km_rate"
+    | "tier2_per_km_rate"
+    | "speed_economy_mult"
+    | "speed_standard_mult"
+    | "speed_express_mult"
+    | "is_active"
+  >
+>;
+
+export type AdminFareVehicleTypeUpdateResponse = {
+  message?: string;
+  data: AdminFareVehicleType;
+};
+
+export type AdminFareEstimateResponse = {
+  data: {
+    vehicle_type: {
+      id: number;
+      name: string;
+    };
+    pickup: {
+      id: number;
+      name: string | null;
+      latitude: number;
+      longitude: number;
+    };
+    destination: {
+      id: number;
+      name: string | null;
+      latitude: number;
+      longitude: number;
+    };
+    route: {
+      distance_km: number;
+      duration_min: number;
+    };
+    rates: {
+      base_fare_cents: number;
+      per_km_rate_cents: number;
+      per_min_rate_cents: number;
+      surcharge_cents: number;
+      transaction_fee_cents: number;
+      transaction_per_km_fee_cents: number;
+    };
+    breakdown: {
+      base_fare_cents: number;
+      distance_charge_cents: number;
+      time_charge_cents: number;
+      surcharge_cents: number;
+      transaction_fee_cents: number;
+      transaction_distance_fee_cents: number;
+      total_cents: number;
+    };
+    formula: string;
+  };
+};
+
+export async function adminFareVehicleTypes(token: string) {
+  return apiFetch<AdminFareVehicleTypeListResponse>(`/admin/fares/vehicle-types`, {
+    method: "GET",
+    token,
+  });
+}
+
+export async function adminUpdateFareVehicleType(
+  token: string,
+  vehicleTypeId: number,
+  payload: AdminFareVehicleTypeUpdatePayload
+) {
+  return apiFetch<AdminFareVehicleTypeUpdateResponse>(`/admin/fares/vehicle-types/${vehicleTypeId}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function adminEstimateFare(
+  token: string,
+  payload: { vehicle_type_id: number; pickup_place_id: number; destination_place_id: number }
+) {
+  return apiFetch<AdminFareEstimateResponse>(`/admin/fares/estimate`, {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload),
+  });
+}
+
 export type AdminStoreMetaTagsResponse = {
   message?: string;
   data: {

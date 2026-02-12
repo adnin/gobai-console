@@ -59,6 +59,7 @@ const NAV: NavItem[] = [
   { label: "Orders", to: "/admin/orders", icon: <Truck className="size-4" />, roles: ["admin", "ops", "system"] },
   { label: "Admin KPI", to: "/admin/kpi", icon: <BarChart3 className="size-4" />, roles: ["admin", "system"] },
   { label: "Admin", to: "/admin", icon: <Shield className="size-4" />, roles: ["admin", "system"] },
+  { label: "Fare Management", to: "/admin/fares", icon: <CreditCard className="size-4" />, roles: ["admin", "system"] },
   { label: "Places Import", to: "/admin/places/import", icon: <Database className="size-4" />, roles: ["admin", "system"] },
   { label: "Admin Users", to: "/admin/users", icon: <Users className="size-4" />, roles: ["admin", "system"] },
   { label: "Driver Wallets", to: "/admin/driver-wallets", icon: <CreditCard className="size-4" />, roles: ["admin", "system"] },

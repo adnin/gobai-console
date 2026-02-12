@@ -34,6 +34,7 @@ import { AdminCashoutsPage } from "@/features/admin/pages/AdminCashoutsPage";
 import { AdminReceiptsPage } from "@/features/admin/pages/AdminReceiptsPage";
 import { AdminOrderPaymentPage } from "@/features/admin/pages/AdminOrderPaymentPage";
 import { AdminUsersPage } from "@/features/admin/pages/AdminUsersPage";
+import { AdminFareManagementPage } from "@/features/admin/pages/AdminFareManagementPage";
 import AdminPlacesImportPage from "@/features/admin/pages/AdminPlacesImportPage";
 import { SupportHomePage } from "@/features/support/pages/SupportHomePage";
 import { SupportDisputesPage } from "@/features/support/pages/SupportDisputesPage";
@@ -517,6 +518,15 @@ export function AppRouter() {
             element={
               <RequireRoles roles={["admin", "system"]}>
                 <AdminUsersPage />
+              </RequireRoles>
+            }
+          />
+
+          <Route
+            path="admin/fares"
+            element={
+              <RequireRoles roles={["admin", "system"]}>
+                <AdminFareManagementPage />
               </RequireRoles>
             }
           />
