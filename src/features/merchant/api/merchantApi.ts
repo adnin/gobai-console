@@ -335,6 +335,20 @@ export type MerchantStore = {
   pause_started_at?: string | null;
   pause_expires_at?: string | null;
   availability?: string;
+  restrict_dispatch_to_store_drivers?: boolean;
+};
+
+export type MerchantStoreDriver = {
+  id: number;
+  driver_id: number;
+  driver?: {
+    id?: number;
+    name?: string | null;
+    email?: string | null;
+    mobile?: string | null;
+    status?: string | null;
+  } | null;
+  created_at?: string | null;
 };
 
 export async function merchantGetStore(token: string): Promise<{ store: MerchantStore }> {
@@ -381,6 +395,18 @@ export async function merchantResumeStore(token: string): Promise<any> {
 
 export async function merchantUpdateDefaultPrepTime(token: string, default_prep_time_min: number): Promise<any> {
   return apiJson(`/merchant/store/prep-time`, { method: "PATCH", token, body: JSON.stringify({ default_prep_time_min }) });
+}
+
+export async function merchantListStoreDrivers(token: string): Promise<{ data: MerchantStoreDriver[] }> {
+  return apiJson(`/merchant/store/drivers`, { method: "GET", token });
+}
+
+export async function merchantAddStoreDriver(token: string, driverId: number): Promise<{ id: number }> {
+  return apiJson(`/merchant/store/drivers`, {
+    method: "POST",
+    token,
+    body: JSON.stringify({ driver_id: driverId }),
+  });
 }
 
 export type MerchantProduct = {

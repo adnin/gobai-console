@@ -8,6 +8,8 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/auth";
 import {
   merchantStore,
+  merchantListStoreDrivers,
+  merchantAddStoreDriver,
   merchantUpdateStore,
   merchantUpdateStoreStatus,
   merchantUpdateStoreHours,
@@ -27,7 +29,16 @@ export function MerchantStorePage() {
     enabled: !!token,
   });
 
+  const storeDriversQ = useQuery({
+    queryKey: ["merchant", "store", "drivers"],
+    queryFn: async () => merchantListStoreDrivers(String(token)),
+    enabled: !!token,
+  });
+
   const [draft, setDraft] = useState<Partial<MerchantStore>>({});
+  const [driverIdInput, setDriverIdInput] = useState("");
+  const [restrictOnlyMyDrivers, setRestrictOnlyMyDrivers] = useState(false);
+  const [restrictError, setRestrictError] = useState<string | null>(null);
 
   useEffect(() => {
     if (storeQ.data) {
@@ -36,6 +47,7 @@ export function MerchantStorePage() {
         description: storeQ.data.description ?? "",
         address: storeQ.data.address ?? "",
       });
+      setRestrictOnlyMyDrivers(Boolean(storeQ.data.restrict_dispatch_to_store_drivers));
     }
   }, [storeQ.data]);
 
@@ -94,6 +106,44 @@ export function MerchantStorePage() {
       await qc.invalidateQueries({ queryKey: ["merchant", "store"] });
     },
   });
+
+  const addDriverM = useMutation({
+    mutationFn: async (driverId: number) => merchantAddStoreDriver(String(token), driverId),
+    onSuccess: async () => {
+      setDriverIdInput("");
+      await qc.invalidateQueries({ queryKey: ["merchant", "store", "drivers"] });
+      await qc.invalidateQueries({ queryKey: ["merchant", "store"] });
+    },
+  });
+
+  const restrictM = useMutation({
+    mutationFn: async (value: boolean) =>
+      merchantUpdateStore(String(token), { restrict_dispatch_to_store_drivers: value }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["merchant", "store"] });
+    },
+    onError: async () => {
+      await qc.invalidateQueries({ queryKey: ["merchant", "store"] });
+    },
+  });
+
+  const storeDrivers = storeDriversQ.data?.data ?? [];
+
+  const handleRestrictChange = (value: boolean) => {
+    if (value && storeDrivers.length === 0) {
+      setRestrictError("Add a driver before enabling restricted dispatch.");
+      return;
+    }
+
+    setRestrictError(null);
+    const previous = restrictOnlyMyDrivers;
+    setRestrictOnlyMyDrivers(value);
+    restrictM.mutate(value, {
+      onError: () => setRestrictOnlyMyDrivers(previous),
+    });
+  };
+
+  const restrictErrorMessage = restrictError ?? (restrictM.error as any)?.message ?? null;
 
   const s = storeQ.data;
 
@@ -251,6 +301,100 @@ export function MerchantStorePage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle className="text-base">Store drivers</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold">Dispatch preference</div>
+              <div className="text-xs text-muted-foreground">
+                Toggle this to stop falling back to marketplace drivers. The system will first try your own riders and stop if none are available.
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={restrictOnlyMyDrivers}
+                onChange={(e) => handleRestrictChange(e.target.checked)}
+                disabled={restrictM.isPending || (storeDrivers.length === 0 && !restrictOnlyMyDrivers)}
+                className="h-4 w-4 rounded border border-border bg-background"
+              />
+              <span>Restrict dispatch to store drivers</span>
+            </label>
+          </div>
+          {restrictErrorMessage ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+              {restrictErrorMessage}
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            {storeDriversQ.isLoading ? (
+              <div className="text-xs text-muted-foreground">Loading roster...</div>
+            ) : storeDriversQ.isError ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                {(storeDriversQ.error as any)?.message ?? "Failed to load drivers"}
+              </div>
+            ) : storeDrivers.length === 0 ? (
+              <div className="text-xs text-muted-foreground">
+                No merchant drivers yet. Add one below to start restricting dispatch.
+              </div>
+            ) : (
+              storeDrivers.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border bg-background/50 px-3 py-2 text-sm"
+                >
+                  <div>
+                    <div className="font-medium">
+                      {entry.driver?.name ?? `Driver #${entry.driver_id}`}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {entry.driver?.email ?? entry.driver?.mobile ?? `User ID ${entry.driver_id}`}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end text-right text-xs text-muted-foreground">
+                    {entry.driver?.status ? (
+                      <span className="capitalize">{entry.driver.status}</span>
+                    ) : null}
+                    {entry.created_at ? (
+                      <span>{new Date(entry.created_at).toLocaleString()}</span>
+                    ) : null}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <Input
+              type="number"
+              min="1"
+              placeholder="Driver user ID"
+              value={driverIdInput}
+              onChange={(e) => setDriverIdInput(e.target.value)}
+              disabled={addDriverM.isPending}
+            />
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const id = Number(driverIdInput);
+                if (!Number.isFinite(id) || id <= 0) return;
+                addDriverM.mutate(id);
+              }}
+              disabled={addDriverM.isPending || !driverIdInput.trim()}
+            >
+              {addDriverM.isPending ? "Adding..." : "Add driver"}
+            </Button>
+          </div>
+          {addDriverM.isError && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+              {(addDriverM.error as any)?.message ?? "Failed to add driver"}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="mt-4 rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
         Approval: {String(s?.approval_status ?? "—")} · Store ID: {String(s?.id ?? "—")}

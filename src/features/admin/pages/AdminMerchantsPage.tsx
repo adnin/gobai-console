@@ -451,6 +451,11 @@ export function AdminMerchantsPage() {
     [storesForTags, tagsModal.selectedStoreId]
   );
 
+  const selectedStoreDrivers = useMemo(
+    () => Array.isArray(selectedStoreForTags?.storeDrivers) ? selectedStoreForTags.storeDrivers : [],
+    [selectedStoreForTags]
+  );
+
   const selectedPickupPlaceForTags = useMemo(() => {
     const selectedId = Number(tagsModal.pickupPlaceIdInput);
     if (!Number.isFinite(selectedId) || selectedId <= 0) return null;
@@ -1415,6 +1420,50 @@ export function AdminMerchantsPage() {
                   />
                   <div className="mt-1 text-xs text-muted-foreground">
                     Comma-separated tags used by customer search.
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border bg-background/50 p-3 text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold">Dispatch drivers</div>
+                    <span className="text-[11px] uppercase text-muted-foreground tracking-wide">
+                      {selectedStoreForTags?.restrict_dispatch_to_store_drivers ? "Restricted" : "Marketplace fallback"}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Merchants can restrict dispatch to their own roster. Store drivers appear below.
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {selectedStoreDrivers.length === 0 ? (
+                      <div className="text-[11px] text-muted-foreground">
+                        No store drivers have been added yet.
+                      </div>
+                    ) : (
+                      selectedStoreDrivers.map((driver: any) => (
+                        <div
+                          key={driver.id}
+                          className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/10 px-3 py-2"
+                        >
+                          <div>
+                            <div className="text-sm font-medium">
+                              {driver.driver?.name ?? `Driver #${driver.driver_id}`}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {driver.driver?.email ?? driver.driver?.mobile ?? `ID ${driver.driver_id}`}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end text-[11px] text-muted-foreground">
+                            {driver.driver?.status ? (
+                              <span className="capitalize">{driver.driver.status}</span>
+                            ) : (
+                              <span>status unknown</span>
+                            )}
+                            {driver.created_at ? (
+                              <span>{new Date(driver.created_at).toLocaleString()}</span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </>
