@@ -55,7 +55,8 @@ export function getStoredTenantId(): number | null {
 /**
  * Minimal fetch wrapper for a Laravel API.
  * - Adds JSON headers
- * - Adds Bearer token if provided
+ * - Sends browser credentials by default (cookie/session auth)
+ * - Adds Bearer token if explicitly provided
  * - Throws ApiError on non-2xx
  */
 export async function apiFetch<T>(
@@ -85,7 +86,8 @@ export async function apiFetch<T>(
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (tenantId && !headers.has("X-Tenant-Id")) headers.set("X-Tenant-Id", String(tenantId));
 
-  const res = await fetch(url, { ...init, headers });
+  const credentials = init?.credentials ?? "include";
+  const res = await fetch(url, { ...init, headers, credentials });
 
   if (!res.ok) {
     const ct = res.headers.get("content-type") ?? "";

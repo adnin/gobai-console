@@ -1,9 +1,9 @@
-export const LS_TOKEN = "dispatch_web_token";
+let runtimeAuthToken = "";
+
+export function setAuthToken(token: string | null | undefined) {
+  runtimeAuthToken = token ? String(token) : "";
+}
 
 export function getAuthToken(): string {
-  try {
-    return localStorage.getItem(LS_TOKEN) || "";
-  } catch {
-    return "";
-  }
+  return runtimeAuthToken;
 }

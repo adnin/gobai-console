@@ -37,6 +37,7 @@ export function getSocket() {
     reconnectionDelayMax: 2000,
     timeout: 10_000,
     transports: ["websocket", "polling"],
+    withCredentials: true,
     auth: { token: getAuthToken() || "" },
   });
 
@@ -67,6 +68,13 @@ export function syncSocketAuth() {
 
     if (socket.connected && token) {
       socket.emit("auth", { token });
+      return;
+    }
+
+    // Cookie-backed auth needs a fresh handshake after login/logout.
+    if (socket.connected && !token) {
+      socket.disconnect();
+      socket.connect();
     }
   } catch {
     // ignore socket sync failures

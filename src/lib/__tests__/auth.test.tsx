@@ -47,7 +47,7 @@ describe("Auth API fetch integration", () => {
     (import.meta as any).env = originalEnv;
   });
 
-  it("login stores token + viewer (response shape {token,user})", async () => {
+  it("login stores viewer without persisting token", async () => {
     const { AuthProvider, useAuth } = await import("@/lib/auth");
     const React = await import("react");
     const { render, act } = await import("@testing-library/react");
@@ -82,7 +82,7 @@ describe("Auth API fetch integration", () => {
 
     expect((await findByTestId("token")).textContent).toBe("1|abc");
     expect((await findByTestId("role")).textContent).toBe("ops");
-    expect(localStorage.getItem("dispatch_web_token")).toBe("1|abc");
+    expect(localStorage.getItem("dispatch_web_token")).toBeNull();
     expect(localStorage.getItem("dispatch_web_viewer")).toContain("Ops User");
 
     // verify body uses {login,password}
@@ -90,12 +90,10 @@ describe("Auth API fetch integration", () => {
     expect(init.body).toContain('"login"');
   });
 
-  it("refreshMe calls /user with Bearer token and updates roles from role_name", async () => {
+  it("refreshMe calls /user with cookie credentials and updates roles from role_name", async () => {
     const { AuthProvider, useAuth } = await import("@/lib/auth");
     const React = await import("react");
     const { render, act } = await import("@testing-library/react");
-
-    localStorage.setItem("dispatch_web_token", "1|seed");
 
     (fetch as any).mockResolvedValue({
       ok: true,
@@ -130,6 +128,7 @@ describe("Auth API fetch integration", () => {
     const call = (fetch as any).mock.calls[0];
     expect(call[0]).toContain("/user");
     const init = call[1];
-    expect(init.headers.get("Authorization")).toBe("Bearer 1|seed");
+    expect(init.credentials).toBe("include");
+    expect(init.headers.get("Authorization")).toBeNull();
   });
 });

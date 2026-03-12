@@ -2,12 +2,13 @@ import * as React from "react";
 import type { Role, Viewer } from "@/lib/rbac";
 import { apiFetch, envBool, envStr } from "@/lib/http";
 import { resetSocket, syncSocketAuth } from "@/lib/socket";
+import { setAuthToken } from "@/lib/tokenStore";
 
 /**
  * Backend alignment (your api.zip):
  * - POST  /auth/login   expects { login, password }
  * - GET   /user         returns authenticated user (includes role_name accessor)
- * - Logout route may not exist; we clear token locally regardless.
+ * - Logout route may not exist; we clear client session state regardless.
  *
  * You can override paths via env:
  * - VITE_AUTH_LOGIN_PATH   default: /auth/login
@@ -18,9 +19,8 @@ const LOGIN_PATH = envStr("VITE_AUTH_LOGIN_PATH", "/auth/login");
 const ME_PATH = envStr("VITE_AUTH_ME_PATH", "/user");
 const LOGOUT_PATH = envStr("VITE_AUTH_LOGOUT_PATH", "/auth/logout");
 
-// Optional cookie-based CSRF if you ever switch to Sanctum SPA auth.
-// For token auth, leave off.
-const USE_CSRF = envBool("VITE_AUTH_CSRF", false);
+// Cookie-based CSRF (Sanctum-style) is on by default.
+const USE_CSRF = envBool("VITE_AUTH_CSRF", true);
 const CSRF_PATH = envStr("VITE_AUTH_CSRF_PATH", "/sanctum/csrf-cookie");
 
 type AuthState = {
@@ -36,7 +36,7 @@ type AuthContextValue = AuthState & {
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
 
-const LS_TOKEN = "dispatch_web_token";
+const LEGACY_LS_TOKEN = "dispatch_web_token";
 const LS_VIEWER = "dispatch_web_viewer";
 
 function readJson<T>(key: string): T | null {
@@ -133,7 +133,7 @@ export function extractRolesFromUser(user: any): Role[] {
   return Array.from(new Set(out));
 }
 
-function normalizeLoginResponse(payload: any): { token: string; user: any } {
+function normalizeLoginResponse(payload: any): { token: string | null; user: any | null } {
   const p = payload?.data && typeof payload.data === "object" ? payload.data : payload;
 
   const token =
@@ -146,10 +146,10 @@ function normalizeLoginResponse(payload: any): { token: string; user: any } {
 
   const user = p?.user ?? payload?.user ?? p?.data ?? payload?.data;
 
-  if (!token) throw new Error("Login response missing token");
-  if (!user) throw new Error("Login response missing user");
-
-  return { token: String(token), user };
+  return {
+    token: token ? String(token) : null,
+    user: user ?? null
+  };
 }
 
 function normalizeMeResponse(payload: any): any {
@@ -184,20 +184,18 @@ function makeViewerFromUser(user: any): Viewer {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = React.useState<string | null>(() => localStorage.getItem(LS_TOKEN));
+  const [token, setToken] = React.useState<string | null>(null);
   const [viewer, setViewer] = React.useState<Viewer | null>(() => readJson<Viewer>(LS_VIEWER));
 
   const setSession = React.useCallback((nextToken: string | null, nextViewer: Viewer | null) => {
-    if (nextToken) localStorage.setItem(LS_TOKEN, nextToken);
-    else localStorage.removeItem(LS_TOKEN);
-
     if (nextViewer) localStorage.setItem(LS_VIEWER, JSON.stringify(nextViewer));
     else localStorage.removeItem(LS_VIEWER);
 
     setToken(nextToken);
+    setAuthToken(nextToken);
     setViewer(nextViewer);
 
-    if (nextToken) {
+    if (nextViewer) {
       syncSocketAuth();
     } else {
       resetSocket();
@@ -205,12 +203,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshMe = React.useCallback(async () => {
-    if (!token) return;
-    const payload = await apiFetch<any>(ME_PATH, { method: "GET", token });
+    const payload = await apiFetch<any>(ME_PATH, { method: "GET" });
     const user = normalizeMeResponse(payload);
     const v = makeViewerFromUser(user);
     setSession(token, v);
-  }, [token, setSession]);
+  }, [setSession, token]);
 
   const login = React.useCallback(async (input: { login: string; password: string }) => {
     await maybeCsrfCookie();
@@ -222,24 +219,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
     });
     const { token: t, user } = normalizeLoginResponse(payload);
-    const v = makeViewerFromUser(user);
+    const meUser = user ?? normalizeMeResponse(await apiFetch<any>(ME_PATH, { method: "GET" }));
+    const v = makeViewerFromUser(meUser);
     setSession(t, v);
   }, [setSession]);
 
   const logout = React.useCallback(async () => {
-    const t = token;
     // best-effort server revoke, but safe if endpoint doesn't exist
     try {
-      if (t) await apiFetch(LOGOUT_PATH, { method: "POST", token: t });
+      await apiFetch(LOGOUT_PATH, { method: "POST" });
     } catch {
       // ignore
     } finally {
       setSession(null, null);
     }
-  }, [token, setSession]);
+  }, [setSession]);
 
   React.useEffect(() => {
-    if (token && (!viewer || (viewer.roles?.length ?? 0) === 0)) {
+    // Cleanup legacy persistent token from earlier builds.
+    try {
+      localStorage.removeItem(LEGACY_LS_TOKEN);
+    } catch {
+      // ignore storage access failures
+    }
+    setAuthToken(null);
+  }, []);
+
+  React.useEffect(() => {
+    if (!viewer || (viewer.roles?.length ?? 0) === 0) {
       refreshMe().catch(() => setSession(null, null));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
