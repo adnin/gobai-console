@@ -1,6 +1,14 @@
 #!/bin/sh
 FILES=$(git diff --cached --name-only --diff-filter=ACMR | sed 's| |\\ |g')
 [ -z "$FILES" ] && exit 0
+
+# Block commits that include generated build artifacts.
+if echo "$FILES" | grep -Eq '^dist/'; then
+	echo "Error: build artifacts under dist/ must not be committed."
+	echo "Run: git rm -r --cached dist"
+	exit 1
+fi
+
 echo "$FILES" | xargs pnpm prettier --experimental-cli --write --ignore-unknown
 echo "$FILES" | xargs git add
 
