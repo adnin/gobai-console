@@ -1,4 +1,6 @@
 import { io, Socket } from "socket.io-client";
+import { ensureRequestId } from "@/lib/correlation";
+import { emitSecurityEvent } from "@/lib/securityTelemetry";
 import { getAuthToken } from "@/lib/tokenStore";
 
 let socket: Socket | null = null;
@@ -37,17 +39,30 @@ export function getSocket() {
     reconnectionDelayMax: 2000,
     timeout: 10_000,
     transports: ["websocket", "polling"],
-    auth: { token: getAuthToken() || "" },
+    auth: {
+      token: getAuthToken() || "",
+      rid: ensureRequestId(""),
+    },
   });
 
   socket.on("connect", () => {
     const token = getAuthToken();
     if (!token) return;
 
-    (socket as any).auth = { token };
+    const rid = ensureRequestId("");
+    (socket as any).auth = { token, rid };
 
-    socket?.emit("auth", { token }, () => {
+    socket?.emit("auth", { token, rid }, () => {
       // ack ignored
+    });
+  });
+
+  socket.on("connect_error", (err: any) => {
+    emitSecurityEvent({
+      rid: ensureRequestId(""),
+      code: "socket_connect_error",
+      source: "socket",
+      detail: String(err?.message ?? "socket connection error"),
     });
   });
 
@@ -63,10 +78,11 @@ export function syncSocketAuth() {
     if (!socket) return;
 
     const token = getAuthToken() || "";
-    (socket as any).auth = { token };
+    const rid = ensureRequestId("");
+    (socket as any).auth = { token, rid };
 
     if (socket.connected && token) {
-      socket.emit("auth", { token });
+      socket.emit("auth", { token, rid });
     }
   } catch {
     // ignore socket sync failures

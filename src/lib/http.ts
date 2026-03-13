@@ -1,3 +1,6 @@
+import { ensureRequestId } from "@/lib/correlation";
+import { emitSecurityEvent } from "@/lib/securityTelemetry";
+
 export type ApiErrorShape = { message?: string; errors?: Record<string, string[] | string> } | string | null;
 
 export class ApiError extends Error {
@@ -85,6 +88,10 @@ export async function apiFetch<T>(
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (tenantId && !headers.has("X-Tenant-Id")) headers.set("X-Tenant-Id", String(tenantId));
 
+  const requestId = ensureRequestId(headers.get("X-Request-Id"));
+  if (!headers.has("X-Request-Id")) headers.set("X-Request-Id", requestId);
+  if (!headers.has("X-Correlation-Id")) headers.set("X-Correlation-Id", requestId);
+
   const res = await fetch(url, { ...init, headers });
 
   if (!res.ok) {
@@ -116,6 +123,19 @@ export async function apiFetch<T>(
       if (typeof payload === "string" && payload) return payload;
       return `Request failed (${res.status})`;
     })();
+
+    const responseRid = (res.headers.get("X-Request-Id") || requestId || "").trim();
+    if ([401, 403, 429].includes(res.status)) {
+      emitSecurityEvent({
+        rid: responseRid,
+        status: res.status,
+        code: `http_${res.status}`,
+        path,
+        method: String(init?.method || "GET").toUpperCase(),
+        source: "http",
+        detail: String(msg),
+      });
+    }
 
     const err = new ApiError(String(msg), res.status, payload);
     if (!(init as any)?.silent) emitGlobalApiError(err);
